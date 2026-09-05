@@ -1,0 +1,287 @@
+@import url("base.css");
+
+/* =====================================================
+   DASHBOARD — page-specific rules only.
+
+   The sidebar/nav/header/card/toast/form rules that used
+   to be duplicated here now come from base.css (which this
+   file @imports), so this dashboard finally uses the same
+   accent color, font sizes and dark-mode tokens as every
+   other page instead of its own drifted #6542e9 gradient.
+===================================================== */
+
+
+/* =====================================================
+   STATS
+===================================================== */
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.stat-card {
+    background: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+}
+
+.stat-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.stat-card span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.stat-card strong {
+    display: block;
+    font-size: 26px;
+    font-weight: 800;
+    margin-top: 8px;
+}
+
+.stat-card small {
+    display: block;
+    color: var(--text-faint);
+    font-size: 11px;
+    margin-top: 6px;
+}
+
+/* Balance hide/show toggle sits on the first stat card only. */
+.balance-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+}
+
+/* Applied to the balance <strong> when hidden; the real
+   value stays in a data-attribute so toggling back doesn't
+   need another API call. */
+.balance-masked {
+    letter-spacing: 2px;
+}
+
+/* Sparkline canvas under the balance stat card. */
+.sparkline-wrap {
+    margin-top: 10px;
+    height: 36px;
+}
+
+
+/* =====================================================
+   CONTENT GRID
+===================================================== */
+
+.content-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.card-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.card-header-row h2 {
+    margin-bottom: 0;
+}
+
+
+/* =====================================================
+   QUICK ACTIONS
+===================================================== */
+
+.quick-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.quick-actions a {
+    min-height: 80px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    color: var(--accent);
+    font-size: 18px;
+}
+
+.quick-actions a:hover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+}
+
+.quick-actions strong {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+
+/* =====================================================
+   GUEST MESSAGE
+===================================================== */
+
+.guest-message {
+    margin-top: 15px;
+    padding: 18px;
+    border-radius: var(--radius-lg);
+    background: var(--accent-soft);
+    border: 1px solid rgba(108, 99, 255, 0.25);
+}
+
+.guest-message strong {
+    font-size: 13px;
+}
+
+.guest-message p {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.guest-message button {
+    margin-top: 12px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+
+/* =====================================================
+   PORTFOLIO
+===================================================== */
+
+.portfolio-donut-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 18px;
+    height: 160px;
+}
+
+.portfolio-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.portfolio-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.portfolio-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.portfolio-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.portfolio-info strong {
+    display: block;
+}
+
+.portfolio-info small {
+    display: block;
+    color: var(--text-faint);
+    margin-top: 4px;
+}
+
+.portfolio-balance {
+    font-weight: 700;
+    text-align: right;
+}
+
+
+/* =====================================================
+   RECENT TRANSACTIONS
+===================================================== */
+
+.recent {
+    margin-top: 15px;
+}
+
+.transaction-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.transaction-item div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.transaction-item small {
+    color: var(--text-faint);
+}
+
+.transaction-amount.sent { color: var(--danger); }
+.transaction-amount.received { color: var(--success); }
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1000px) {
+
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .content-grid {
+        grid-template-columns: 1fr;
+    }
+
+}

@@ -1,0 +1,706 @@
+@import url("base.css");
+
+/* Reset, base typography, and shared element defaults now
+   come from base.css — removed the page's own duplicate
+   (Arial-based) reset block so receive.html renders with
+   the same Inter font and theme tokens as every other page. */
+
+
+
+/* =====================================================
+   LAYOUT
+===================================================== */
+
+.receive-page {
+
+    min-height: 100vh;
+
+    display: flex;
+
+}
+
+
+
+/* =====================================================
+   SIDEBAR
+===================================================== */
+
+.sidebar {
+
+    width: 245px;
+
+    min-height: 100vh;
+
+    background: var(--sidebar-bg);
+
+    color: white;
+
+    display: flex;
+
+    flex-direction: column;
+
+    padding: 25px 16px;
+
+    position: fixed;
+
+    left: 0;
+
+    top: 0;
+
+    bottom: 0;
+
+}
+
+
+.brand {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 11px;
+
+    font-size: 21px;
+
+    font-weight: 700;
+
+    padding: 0 10px;
+
+    margin-bottom: 45px;
+
+}
+
+
+.brand span span {
+
+    color: var(--accent-light);
+
+}
+
+
+.logo {
+
+    width: 39px;
+
+    height: 39px;
+
+    border-radius: 10px;
+
+    background: var(--accent);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 21px;
+
+}
+
+
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+nav {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+nav a,
+.sidebar-bottom a,
+.sidebar-bottom button {
+
+    display: block;
+
+    width: 100%;
+
+    padding: 12px 13px;
+
+    border-radius: 8px;
+
+    color: var(--text-faint);
+
+    background: transparent;
+
+    border: none;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    font-size: 14px;
+
+    transition: 0.2s ease;
+
+}
+
+
+nav a:hover,
+.sidebar-bottom a:hover,
+.sidebar-bottom button:hover {
+
+    background: var(--sidebar-hover);
+
+    color: white;
+
+}
+
+
+nav a.active {
+
+    background: var(--accent);
+
+    color: white;
+
+}
+
+
+.sidebar-bottom {
+
+    margin-top: auto;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.main {
+
+    margin-left: 245px;
+
+    width: calc(100% - 245px);
+
+    padding: 35px;
+
+}
+
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 30px;
+
+}
+
+
+.header h1 {
+
+    font-size: 30px;
+
+    margin-bottom: 7px;
+
+}
+
+
+.header p {
+
+    color: var(--text-muted);
+
+    font-size: 14px;
+
+}
+
+
+.avatar {
+
+    width: 44px;
+
+    height: 44px;
+
+    border-radius: 50%;
+
+    background: var(--accent);
+
+    color: white;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-weight: 700;
+
+}
+
+
+
+/* =====================================================
+   RECEIVE CONTAINER
+===================================================== */
+
+.receive-container {
+
+    max-width: 850px;
+
+}
+
+
+
+/* =====================================================
+   RECEIVE CARD
+===================================================== */
+
+.receive-card {
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 14px;
+
+    padding: 30px;
+
+}
+
+
+.card-header {
+
+    margin-bottom: 28px;
+
+}
+
+
+.card-header h2 {
+
+    font-size: 21px;
+
+    margin-bottom: 7px;
+
+}
+
+
+.card-header p {
+
+    color: var(--text-muted);
+
+    font-size: 14px;
+
+}
+
+
+
+/* =====================================================
+   FORM
+===================================================== */
+
+.form-group {
+
+    margin-bottom: 25px;
+
+}
+
+
+.form-group label {
+
+    display: block;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    margin-bottom: 8px;
+
+}
+
+
+.form-group select {
+
+    width: 100%;
+
+    padding: 12px;
+
+    border: 1px solid var(--border-strong);
+
+    border-radius: 8px;
+
+    outline: none;
+
+    background: var(--surface);
+
+}
+
+
+.form-group select:focus {
+
+    border-color: var(--accent);
+
+}
+
+
+.error {
+
+    display: block;
+
+    color: var(--danger);
+
+    font-size: 12px;
+
+    margin-top: 6px;
+
+}
+
+
+
+/* =====================================================
+   WALLET INFORMATION
+===================================================== */
+
+.wallet-information {
+
+    display: grid;
+
+    grid-template-columns:
+        auto 1fr 1fr 1fr;
+
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 20px;
+
+    background: var(--accent-soft);
+
+    border: 1px solid var(--accent-soft);
+
+    border-radius: 12px;
+
+    margin-bottom: 25px;
+
+}
+
+
+.wallet-icon {
+
+    width: 48px;
+
+    height: 48px;
+
+    border-radius: 50%;
+
+    background: var(--accent);
+
+    color: white;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 22px;
+
+}
+
+
+.wallet-details span {
+
+    display: block;
+
+    color: var(--text-faint);
+
+    font-size: 12px;
+
+    margin-bottom: 5px;
+
+}
+
+
+.wallet-details strong {
+
+    font-size: 15px;
+
+}
+
+
+
+/* =====================================================
+   RECEIVE BOX
+===================================================== */
+
+.receive-box {
+
+    padding: 20px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+}
+
+
+.receive-box > label {
+
+    display: block;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    margin-bottom: 8px;
+
+}
+
+
+.identifier-row {
+
+    display: flex;
+
+    gap: 10px;
+
+}
+
+
+.identifier-row input {
+
+    flex: 1;
+
+    padding: 12px;
+
+    border: 1px solid var(--border-strong);
+
+    border-radius: 8px;
+
+    background: var(--surface-alt);
+
+    font-family: monospace;
+
+}
+
+
+.identifier-row button {
+
+    padding: 0 20px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: var(--accent);
+
+    color: white;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+
+}
+
+
+.identifier-row button:hover {
+
+    background: var(--accent-strong);
+
+}
+
+
+.receive-box p {
+
+    color: var(--text-muted);
+
+    font-size: 12px;
+
+    margin-top: 10px;
+
+    line-height: 1.6;
+
+}
+
+
+
+/* =====================================================
+   INFO CARD
+===================================================== */
+
+.info-card {
+
+    margin-top: 20px;
+
+    padding: 20px;
+
+    background: var(--accent-soft);
+
+    border: 1px solid var(--accent-soft);
+
+    border-radius: 12px;
+
+    display: flex;
+
+    gap: 15px;
+
+}
+
+
+.info-icon {
+
+    width: 30px;
+
+    height: 30px;
+
+    min-width: 30px;
+
+    border-radius: 50%;
+
+    background: var(--accent);
+
+    color: white;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-weight: 700;
+
+}
+
+
+.info-card h3 {
+
+    font-size: 15px;
+
+    margin-bottom: 10px;
+
+}
+
+
+.info-card p {
+
+    color: var(--text-muted);
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    margin-bottom: 7px;
+
+}
+
+
+
+/* =====================================================
+   UTILITIES
+===================================================== */
+
+.hidden {
+
+    display: none !important;
+
+}
+
+
+.success-message {
+
+    margin-top: 15px;
+
+    padding: 12px;
+
+    background: var(--success-soft);
+
+    color: var(--success-strong);
+
+    border-radius: 8px;
+
+    font-size: 13px;
+
+}
+
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 900px) {
+
+    .wallet-information {
+
+        grid-template-columns:
+            auto 1fr 1fr;
+
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .sidebar {
+
+        position: static;
+
+        width: 100%;
+
+        min-height: auto;
+
+    }
+
+
+    .receive-page {
+
+        flex-direction: column;
+
+    }
+
+
+    .main {
+
+        margin-left: 0;
+
+        width: 100%;
+
+        padding: 22px;
+
+    }
+
+
+    .wallet-information {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .identifier-row {
+
+        flex-direction: column;
+
+    }
+
+
+    .identifier-row button {
+
+        padding: 12px;
+
+    }
+
+}

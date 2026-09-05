@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Transactions</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/transactions.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="transaction-page">
+
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="logo">
+                    ₿
+                </div>
+
+                <span>
+                    Crypto<span>Wallet</span>
+                </span>
+
+            </div>
+
+
+            <nav>
+
+                <a href="../index.html">
+                    ◉ Dashboard
+                </a>
+
+                <a href="wallets.html">
+                    ▣ Wallets
+                </a>
+
+                <a href="send.html">
+                    ➤ Send
+                </a>
+
+                <a href="receive.html">
+                    ⇩ Receive
+                </a>
+
+                <a href="exchange.html">
+                    ⇄ Exchange
+                </a>
+
+                <a href="split-bill.html">
+                    🧾 Split Bill
+                </a>
+
+                <a
+                    href="transactions.html"
+                    class="active"
+                    aria-current="page"
+                >
+                    ▤ Transactions
+                </a>
+
+                <a href="market.html">
+                    ⌁ Market
+                </a>
+
+                <a href="reports.html">
+                    ▥ Reports
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+
+                <a href="settings.html">
+                    ⚙ Settings
+                </a>
+
+                <a href="help.html">
+                    ? Help & Support
+                </a>
+
+                <button id="logout">
+                    ↪ Logout
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+
+            <!-- HEADER -->
+
+            <header class="header">
+
+                <div>
+
+                    <h1>
+                        Transactions
+                    </h1>
+
+                    <p>
+                        View your complete transaction history.
+                    </p>
+
+                </div>
+
+
+                <div
+                    class="avatar"
+                    id="avatar"
+                >
+                    U
+                </div>
+
+            </header>
+
+
+
+            <!-- SUMMARY -->
+
+            <section class="transaction-summary">
+
+
+                <div class="summary-card">
+
+                    <span>
+                        Total Transactions
+                    </span>
+
+                    <strong id="totalTransactions">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span>
+                        Money Received
+                    </span>
+
+                    <strong id="totalReceived">
+                        $0.00
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span>
+                        Money Sent
+                    </span>
+
+                    <strong id="totalSent">
+                        $0.00
+                    </strong>
+
+                </div>
+
+
+            </section>
+
+
+
+            <!-- FILTER -->
+
+            <section class="filter-card">
+
+                <div class="filter-group">
+
+                    <label for="typeFilter">
+                        Type
+                    </label>
+
+                    <select id="typeFilter">
+
+                        <option value="ALL">
+                            All Transactions
+                        </option>
+
+                        <option value="DEPOSIT">
+                            Deposits
+                        </option>
+
+                        <option value="SEND">
+                            Sent
+                        </option>
+
+                        <option value="RECEIVE">
+                            Received
+                        </option>
+
+                        <option value="EXCHANGE">
+                            Exchange
+                        </option>
+
+                        <option value="SHIFT">
+                            Wallet Shift
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="filter-group">
+
+                    <label for="currencyFilter">
+                        Currency
+                    </label>
+
+                    <select id="currencyFilter">
+
+                        <option value="ALL">
+                            All Currencies
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="filter-group">
+
+                    <label for="categoryFilter">
+                        Category
+                    </label>
+
+                    <select id="categoryFilter">
+
+                        <option value="ALL">
+                            All Categories
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- TRANSACTIONS -->
+
+            <section class="transactions-card">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Transaction History
+                        </h2>
+
+                        <p>
+                            Your latest financial activities.
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        id="exportCSVButton"
+                        class="primary-button"
+                    >
+                        ⬇ Export CSV
+                    </button>
+
+                    <button
+                        type="button"
+                        id="exportPDFButton"
+                        class="primary-button"
+                    >
+                        ⬇ Export PDF
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="transactionList"
+                    class="transaction-list"
+                >
+
+                    <!-- JavaScript will insert transactions -->
+
+                </div>
+
+            </section>
+
+
+        </main>
+
+    </div>
+
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/transactions.js"></script>
+
+</body>
+
+</html>

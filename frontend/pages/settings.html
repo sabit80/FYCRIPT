@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CryptoWallet - Settings</title>
+
+    <link rel="stylesheet" href="../css/settings.css">
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="app-page">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                <div class="logo">₿</div>
+                <span>Crypto<span>Wallet</span></span>
+            </div>
+
+            <nav>
+                <a href="../index.html">◉ Dashboard</a>
+                <a href="wallets.html">▣ Wallets</a>
+                <a href="send.html">➤ Send</a>
+                <a href="receive.html">⇩ Receive</a>
+                <a href="exchange.html">⇄ Exchange</a>
+                <a href="split-bill.html">🧾 Split Bill</a>
+                <a href="transactions.html">▤ Transactions</a>
+                <a href="market.html">⌁ Market</a>
+                <a href="reports.html">▥ Reports</a>
+            </nav>
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+                <a href="settings.html" class="active"
+                    aria-current="page">⚙ Settings</a>
+                <a href="help.html">? Help & Support</a>
+                <button id="logout">↪ Logout</button>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+            <header class="header">
+                <div>
+                    <h1>Settings</h1>
+                    <p>Manage your account details</p>
+                </div>
+                <div class="avatar" id="avatar">A</div>
+            </header>
+
+
+            <!-- PROFILE -->
+
+            <section class="card settings-card">
+
+                <h2>Profile</h2>
+
+                <form id="profileForm">
+
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" required>
+                        <small id="nameError" class="error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" disabled>
+                        <small class="hint">Email can't be changed.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Phone Number (Account Number)</label>
+                        <input type="tel" id="phone" disabled>
+                        <small class="hint">This is your account number — other users send money here.</small>
+                    </div>
+
+                    <button type="submit" class="primary-button">
+                        Save Changes
+                    </button>
+
+                </form>
+
+            </section>
+
+
+            <!-- BANK ACCOUNTS -->
+
+            <section class="card settings-card">
+
+                <h2>Bank Accounts</h2>
+                <p class="hint">Connect one or more bank accounts to your CryptoWallet account.</p>
+
+                <div id="bankAccountList"></div>
+
+                <form id="bankAccountForm">
+
+                    <div class="form-group">
+                        <label for="bankName">Bank Name</label>
+                        <input type="text" id="bankName" placeholder="e.g. City Bank" required>
+                        <small id="bankNameError" class="error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bankAccountNumber">Account Number</label>
+                        <input type="text" id="bankAccountNumber" placeholder="e.g. 1234567890" required>
+                        <small id="bankAccountNumberError" class="error"></small>
+                    </div>
+
+                    <button type="submit" class="primary-button">
+                        Add Bank Account
+                    </button>
+
+                </form>
+
+            </section>
+
+
+            <!-- KYC -->
+
+            <section class="card settings-card">
+
+                <h2>KYC Verification</h2>
+                <p class="hint" id="kycStatusHint">Submit your ID to verify your account.</p>
+
+                <form id="kycForm">
+
+                    <div class="form-group">
+                        <label for="nidNumber">NID Number</label>
+                        <input type="text" id="nidNumber" placeholder="National ID number">
+                        <small id="nidNumberError" class="error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="passportNumber">Passport Number</label>
+                        <input type="text" id="passportNumber" placeholder="Passport number (optional if NID given)">
+                        <small id="passportNumberError" class="error"></small>
+                    </div>
+
+                    <button type="submit" class="primary-button">
+                        Submit KYC
+                    </button>
+
+                </form>
+
+            </section>
+
+
+            <!-- PASSWORD -->
+
+            <section class="card settings-card">
+
+                <h2>Change Password</h2>
+
+                <form id="passwordForm">
+
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" required>
+                        <small id="currentPasswordError" class="error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required>
+                        <small id="newPasswordError" class="error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmNewPassword">Confirm New Password</label>
+                        <input type="password" id="confirmNewPassword" required>
+                        <small id="confirmNewPasswordError" class="error"></small>
+                    </div>
+
+                    <button type="submit" class="primary-button">
+                        Update Password
+                    </button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- TWO-FACTOR AUTHENTICATION -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="two_factor_title">Two-Factor Authentication (2FA)</h2>
+                <p class="hint" id="twoFAStatusHint">Loading status…</p>
+
+                <div id="twoFADisabledBlock" style="display:none;">
+                    <button id="start2FASetupButton" class="primary-button">
+                        Enable 2FA
+                    </button>
+                </div>
+
+                <div id="twoFASetupBlock" style="display:none;">
+                    <p class="hint">Scan this QR code with Google Authenticator, Authy, or a similar app:</p>
+                    <img id="twoFAQRImage" alt="2FA QR code" style="max-width:200px;border-radius:8px;margin:10px 0;">
+                    <p class="hint">Or enter this key manually: <code id="twoFASecretText"></code></p>
+
+                    <div class="form-group">
+                        <label for="twoFAConfirmCode">Enter the 6-digit code from your app</label>
+                        <input type="text" id="twoFAConfirmCode" inputmode="numeric" maxlength="6" placeholder="123456">
+                        <small id="twoFAConfirmError" class="error"></small>
+                    </div>
+
+                    <button id="confirm2FAButton" class="primary-button">Confirm & Enable</button>
+                </div>
+
+                <div id="twoFARecoveryBlock" style="display:none;">
+                    <p class="hint" style="color:#e0a800;">
+                        Save these one-time recovery codes somewhere safe — each can be used once
+                        if you lose access to your authenticator app. They won't be shown again.
+                    </p>
+                    <div id="twoFARecoveryCodes" style="font-family:monospace;font-size:14px;line-height:1.8;"></div>
+                </div>
+
+                <div id="twoFAEnabledBlock" style="display:none;">
+                    <div class="form-group">
+                        <label for="disable2FAPassword">Enter your password to disable 2FA</label>
+                        <input type="password" id="disable2FAPassword" placeholder="Password">
+                        <small id="disable2FAError" class="error"></small>
+                    </div>
+                    <button id="disable2FAButton" class="danger-button">Disable 2FA</button>
+                </div>
+
+            </section>
+
+
+
+            <!-- SCHEDULED / RECURRING PAYMENTS -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="scheduled_payments_title">Scheduled Payments</h2>
+                <p class="hint">Set up a recurring or future-dated transfer.</p>
+
+                <div id="scheduledPaymentList"></div>
+
+                <form id="scheduledPaymentForm">
+
+                    <div class="form-group">
+                        <label for="schedWalletSelect">From Wallet</label>
+                        <select id="schedWalletSelect"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedRecipientPhone">Recipient Phone</label>
+                        <input type="tel" id="schedRecipientPhone" placeholder="e.g. +8801700000000" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedAmount">Amount</label>
+                        <input type="number" id="schedAmount" min="0.00000001" step="0.00000001" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedFrequency">Frequency</label>
+                        <select id="schedFrequency">
+                            <option value="ONCE">One time</option>
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedNextRun">First Run Date/Time</label>
+                        <input type="datetime-local" id="schedNextRun" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schedNote">Note (optional)</label>
+                        <input type="text" id="schedNote" placeholder="e.g. Monthly rent">
+                    </div>
+
+                    <small id="scheduledPaymentError" class="error"></small>
+
+                    <button type="submit" class="primary-button">Create Scheduled Payment</button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- ACCOUNT TYPE (PERSONAL / MERCHANT) -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="account_type_title">Account Type</h2>
+                <p class="hint">Merchant accounts can create payment links for customers.</p>
+
+                <div class="form-group">
+                    <label for="accountTypeSelect">Account Type</label>
+                    <select id="accountTypeSelect">
+                        <option value="PERSONAL">Personal</option>
+                        <option value="MERCHANT">Merchant</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="businessNameGroup" style="display:none;">
+                    <label for="businessNameInput">Business Name</label>
+                    <input type="text" id="businessNameInput" placeholder="e.g. Dana's Coffee Shop">
+                </div>
+
+                <small id="accountTypeError" class="error"></small>
+
+                <button id="saveAccountTypeButton" class="primary-button">Save</button>
+
+            </section>
+
+
+
+            <!-- MERCHANT PAYMENT LINKS -->
+
+            <section class="card settings-card" id="paymentLinksSection" style="display:none;">
+
+                <h2 data-i18n="payment_links_title">Payment Links</h2>
+                <p class="hint">Share a link with customers to collect a fixed or open amount.</p>
+
+                <div id="paymentLinkList"></div>
+
+                <form id="paymentLinkForm">
+
+                    <div class="form-group">
+                        <label for="linkWalletSelect">Receiving Wallet</label>
+                        <select id="linkWalletSelect"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="linkTitle">Title</label>
+                        <input type="text" id="linkTitle" placeholder="e.g. Coffee" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="linkAmount">Fixed Amount (leave blank for "any amount")</label>
+                        <input type="number" id="linkAmount" min="0.00000001" step="0.00000001">
+                    </div>
+
+                    <small id="paymentLinkError" class="error"></small>
+
+                    <button type="submit" class="primary-button">Create Payment Link</button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- SAVINGS GOALS -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="savings_goals_title">Savings Goals</h2>
+                <p class="hint">Set aside money toward a goal, optionally auto-saving a % of every Send.</p>
+
+                <div id="savingsGoalList"></div>
+
+                <form id="savingsGoalForm">
+
+                    <div class="form-group">
+                        <label for="savingsWalletSelect">Savings Wallet</label>
+                        <select id="savingsWalletSelect"></select>
+                        <small class="hint">Create a dedicated wallet on the Wallets page first.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goalName">Goal Name</label>
+                        <input type="text" id="goalName" placeholder="e.g. New Phone" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goalTarget">Target Amount</label>
+                        <input type="number" id="goalTarget" min="0.00000001" step="0.00000001" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="goalAutoSavePercent">Auto-Save % of every Send (optional)</label>
+                        <input type="number" id="goalAutoSavePercent" min="0" max="100" step="0.01" value="0">
+                    </div>
+
+                    <small id="savingsGoalError" class="error"></small>
+
+                    <button type="submit" class="primary-button">Create Savings Goal</button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- PRICE ALERTS -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="rate_alerts_title">Rate Alerts</h2>
+                <p class="hint">Get notified when a currency crosses a rate you choose.</p>
+
+                <div id="priceAlertList"></div>
+
+                <form id="priceAlertForm">
+
+                    <div class="form-group">
+                        <label for="alertFromCurrency">From Currency</label>
+                        <select id="alertFromCurrency"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="alertToCurrency">To Currency</label>
+                        <select id="alertToCurrency"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="alertThreshold">Alert when rate reaches</label>
+                        <input type="number" id="alertThreshold" min="0.00000001" step="0.00000001" required>
+                    </div>
+
+                    <small id="priceAlertError" class="error"></small>
+
+                    <button type="submit" class="primary-button">Create Alert</button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- LANGUAGE -->
+
+            <section class="card settings-card">
+
+                <h2 data-i18n="language_title">Language</h2>
+
+                <div class="form-group">
+                    <label for="languageSelect">Interface Language</label>
+                    <select id="languageSelect">
+                        <option value="en">English</option>
+                        <option value="bn">বাংলা (Bangla)</option>
+                    </select>
+                </div>
+
+            </section>
+
+
+
+            <!-- DEACTIVATE ACCOUNT -->
+
+            <section class="card settings-card">
+
+                <h2 style="color:#d9484f;" data-i18n="deactivate_title">Deactivate Account</h2>
+                <p class="hint">This closes your account. Contact support to reactivate it.</p>
+
+                <div class="form-group">
+                    <label for="deactivatePassword">Enter your password to confirm</label>
+                    <input type="password" id="deactivatePassword" placeholder="Password">
+                </div>
+
+                <small id="deactivateError" class="error"></small>
+
+                <button id="deactivateAccountButton" class="danger-button">Deactivate My Account</button>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <div id="toast" class="toast"></div>
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/i18n.js"></script>
+<script src="../js/settings.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Send</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/send.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../css/pinpad.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+<div class="send-page">
+
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="logo">
+                ₿
+            </div>
+
+            <span>
+                Crypto<span>Wallet</span>
+            </span>
+
+        </div>
+
+
+        <nav>
+
+            <a href="../index.html">
+                ◉ Dashboard
+            </a>
+
+            <a href="wallets.html">
+                ▣ Wallets
+            </a>
+
+            
+                <a href="send.html">
+                ➤ Send
+            </a>
+
+            <a href="receive.html">
+                ⇩ Receive
+            </a>
+
+            <a href="exchange.html">
+                ⇄ Exchange
+            </a>
+
+            <a href="split-bill.html">
+                🧾 Split Bill
+            </a>
+
+            <a href="transactions.html">
+                ▤ Transactions
+            </a>
+
+            <a href="market.html">
+                ⌁ Market
+            </a>
+
+            <a href="reports.html">
+                ▥ Reports
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+
+            <a href="settings.html">
+                ⚙ Settings
+            </a>
+
+            <a href="help.html">
+                ? Help & Support
+            </a>
+
+            <button id="logout">
+                ↪ Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- MAIN -->
+
+    <main class="main" id="mainContent">
+
+
+        <!-- HEADER -->
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Send
+                </h1>
+
+                <p>
+                    Send currency to another CryptoWallet user.
+                </p>
+
+            </div>
+
+
+            <div
+                class="avatar"
+                id="avatar"
+            >
+                U
+            </div>
+
+        </header>
+
+
+
+        <!-- SEND CONTAINER -->
+
+        <section class="send-container">
+
+            <div class="send-card">
+
+
+                <div class="card-header">
+
+                    <h2>
+                        Send Currency
+                    </h2>
+
+                    <p>
+                        Choose your wallet and enter the
+                        recipient's wallet information.
+                    </p>
+
+                </div>
+
+
+
+                <!-- SENDER WALLET -->
+
+                <div class="form-group">
+
+                    <label for="senderWallet">
+                        From Wallet
+                    </label>
+
+
+                    <select id="senderWallet">
+
+                        <option value="">
+                            Select your wallet
+                        </option>
+
+                    </select>
+
+
+                    <small
+                        id="senderWalletError"
+                        class="error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- SEND MODE -->
+
+                <div class="form-group">
+
+                    <label>
+                        Send To
+                    </label>
+
+                    <div class="send-mode-toggle">
+
+                        <label class="mode-option">
+                            <input
+                                type="radio"
+                                name="sendMode"
+                                id="modePhone"
+                                value="phone"
+                                checked
+                            >
+                            <span>Another Account (Phone Number)</span>
+                        </label>
+
+                        <label class="mode-option">
+                            <input
+                                type="radio"
+                                name="sendMode"
+                                id="modeWallet"
+                                value="wallet"
+                            >
+                            <span>My Own Wallet (Shift Funds)</span>
+                        </label>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- RECIPIENT: PHONE -->
+
+                <div class="form-group" id="recipientPhoneGroup">
+
+                    <label for="recipientPhone">
+                        Recipient's Phone Number
+                    </label>
+
+
+                    <div style="display:flex;gap:8px;">
+
+                        <input
+                            type="tel"
+                            id="recipientPhone"
+                            placeholder="e.g. 01812345678"
+                            style="flex:1;"
+                        >
+
+                        <button
+                            type="button"
+                            id="scanQRButton"
+                            title="Scan a QR code"
+                        >
+                            ▣ Scan
+                        </button>
+
+                    </div>
+
+
+                    <small
+                        id="recipientPhoneError"
+                        class="error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- RECIPIENT: OWN WALLET -->
+
+                <div class="form-group hidden" id="recipientWalletGroup">
+
+                    <label for="recipientWallet">
+                        Destination Wallet
+                    </label>
+
+
+                    <select id="recipientWallet">
+
+                        <option value="">
+                            Select a wallet to move funds into
+                        </option>
+
+                    </select>
+
+
+                    <small
+                        id="recipientWalletError"
+                        class="error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- RECIPIENT PREVIEW -->
+
+                <div
+                    id="recipientPreview"
+                    class="recipient-preview hidden"
+                >
+
+                    <h3>
+                        Recipient
+                    </h3>
+
+
+                    <div class="recipient-row">
+
+                        <span>
+                            Wallet
+                        </span>
+
+                        <strong id="recipientWalletName">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="recipient-row">
+
+                        <span>
+                            Currency
+                        </span>
+
+                        <strong id="recipientCurrency">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="recipient-row">
+
+                        <span>
+                            Owner
+                        </span>
+
+                        <strong id="recipientOwner">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- AMOUNT -->
+
+                <div class="form-group">
+
+                    <label for="amount">
+                        Amount to Send
+                    </label>
+
+
+                    <div class="amount-wrapper">
+
+                        <input
+                            type="number"
+                            id="amount"
+                            placeholder="0.00"
+                            min="0"
+                            step="any"
+                        >
+
+
+                        <span id="currencyLabel">
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <small
+                        id="amountError"
+                        class="error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- CATEGORY (personal budgeting tag) -->
+
+                <div class="form-group">
+
+                    <label for="sendCategory">
+                        Category (optional)
+                    </label>
+
+                    <select id="sendCategory">
+                        <option value="">No category</option>
+                        <option value="Food">Food</option>
+                        <option value="Bills">Bills</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Family">Family</option>
+                        <option value="Rent">Rent</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Other">Other</option>
+                    </select>
+
+                </div>
+
+
+
+                <!-- CONVERSION PREVIEW -->
+
+                <div
+                    id="conversionPreview"
+                    class="conversion-preview hidden"
+                >
+
+                    <div class="conversion-title">
+                        Currency Conversion
+                    </div>
+
+
+                    <div class="conversion-row">
+
+                        <span>
+                            You send
+                        </span>
+
+                        <strong id="sendPreview">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="conversion-arrow">
+                        ↓
+                    </div>
+
+
+                    <div class="conversion-row">
+
+                        <span>
+                            Recipient receives
+                        </span>
+
+                        <strong id="receivePreview">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="rate">
+
+                        Exchange Rate:
+
+                        <strong id="ratePreview">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- SEND BUTTON -->
+
+                <button
+                    id="sendButton"
+                    class="send-button"
+                >
+                    Send Currency
+                </button>
+
+
+                <div
+                    id="message"
+                    class="message hidden"
+                ></div>
+
+
+            </div>
+
+
+
+            <!-- INFO -->
+
+            <div class="info-card">
+
+                <div class="info-icon">
+                    i
+                </div>
+
+
+                <div>
+
+                    <h3>
+                        How it works
+                    </h3>
+
+                    <p>
+                        Sending to a phone number always lands
+                        in that person's default receive wallet —
+                        just like bKash.
+                    </p>
+
+                    <p>
+                        They can shift it into any of their own
+                        wallets afterwards.
+                    </p>
+
+                    <p>
+                        Moving funds between two of your own
+                        wallets is instant and free.
+                    </p>
+
+                    <p>
+                        If currencies are different on either
+                        side, the amount is converted automatically
+                        using the current exchange rate.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+<!-- QR SCAN MODAL -->
+
+<div id="qrScanOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:9999;">
+
+    <div style="background:#181c2b;padding:20px;border-radius:14px;max-width:360px;width:90%;text-align:center;">
+
+        <h3 style="color:#fff;margin:0 0 10px;">Scan Recipient's QR Code</h3>
+
+        <video id="qrScanVideo" style="width:100%;border-radius:10px;background:#000;" playsinline></video>
+
+        <p id="qrScanStatus" class="hint" style="margin-top:8px;">Point your camera at the QR code.</p>
+
+        <button type="button" id="qrScanCancel" style="width:100%;padding:10px;margin-top:10px;border:none;border-radius:8px;background:#333;color:#fff;cursor:pointer;">
+            Cancel
+        </button>
+
+    </div>
+
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/pinpad.js"></script>
+<script src="../js/success-animation.js"></script>
+<script src="../js/rates.js"></script>
+<script src="../js/send.js"></script>
+
+</body>
+
+</html>

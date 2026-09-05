@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="css/dashboard.css"
+    >
+
+    <!-- Chart.js powers the balance sparkline + portfolio donut
+         below. Loaded from cdnjs like any other public CDN
+         script; the app works without it too (charts just
+         won't render if a network/ad-blocker blocks it). -->
+    <script src="js/chart.umd.min.js" defer></script>
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+    <div class="dashboard app-page">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="logo" aria-hidden="true">
+                    ₿
+                </div>
+
+                <span>
+                    Crypto<span>Wallet</span>
+                </span>
+
+            </div>
+
+
+            <nav aria-label="Main navigation">
+
+                <a
+                    href="index.html"
+                    class="active"
+                    aria-current="page"
+                >
+                    <span class="nav-icon" aria-hidden="true">◉</span> Dashboard
+                </a>
+
+                <a href="pages/wallets.html">
+                    <span class="nav-icon" aria-hidden="true">▣</span> Wallets
+                </a>
+
+                <a href="pages/send.html">
+                    <span class="nav-icon" aria-hidden="true">➤</span> Send
+                </a>
+
+                <a href="pages/receive.html">
+                    <span class="nav-icon" aria-hidden="true">⇩</span> Receive
+                </a>
+
+                <a href="pages/exchange.html">
+                    <span class="nav-icon" aria-hidden="true">⇄</span> Exchange
+                </a>
+
+                <a href="pages/transactions.html">
+                    <span class="nav-icon" aria-hidden="true">▤</span> Transactions
+                </a>
+
+                <a href="pages/split-bill.html">
+                    <span class="nav-icon" aria-hidden="true">🧾</span> Split Bill
+                </a>
+
+                <a href="pages/market.html">
+                    <span class="nav-icon" aria-hidden="true">⌁</span> Market
+                </a>
+
+                <a href="pages/reports.html">
+                    <span class="nav-icon" aria-hidden="true">▥</span> Reports
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-bottom">
+
+                <a href="pages/settings.html">
+                    <span class="nav-icon" aria-hidden="true">⚙</span> Settings
+                </a>
+
+                <a href="pages/help.html">
+                    <span class="nav-icon" aria-hidden="true">?</span> Help &amp; Support
+                </a>
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+                <button id="logout" type="button">
+                    <span class="nav-icon" aria-hidden="true">↪</span> Logout
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+            <header class="header">
+
+                <div>
+
+                    <h1 id="welcome">
+                        Welcome
+                    </h1>
+
+                    <p id="accountType">
+                        Account overview
+                    </p>
+
+                </div>
+
+                <div class="header-actions">
+
+                    <div class="avatar" aria-hidden="true">
+                        A
+                    </div>
+
+                </div>
+
+            </header>
+
+
+
+            <!-- STATS -->
+
+            <section class="stats" aria-label="Account summary">
+
+
+                <div class="stat-card">
+
+                    <div class="stat-card-top">
+                        <span>Total Balance</span>
+                        <button
+                            type="button"
+                            class="icon-button balance-toggle"
+                            id="balanceToggle"
+                            aria-pressed="false"
+                            aria-label="Show or hide your balance"
+                        >
+                            <span aria-hidden="true">👁</span>
+                        </button>
+                    </div>
+
+                    <strong id="totalBalance" class="skeleton skeleton-text">&nbsp;</strong>
+
+                    <small id="totalBalanceNote">No funds available</small>
+
+                    <div class="sparkline-wrap">
+                        <canvas id="balanceSparkline" aria-hidden="true"></canvas>
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Total Wallets</span>
+                    <strong id="totalWallets" class="skeleton skeleton-text">&nbsp;</strong>
+                    <small id="totalWalletsNote">No wallets created</small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Currencies</span>
+                    <strong id="totalCurrencies" class="skeleton skeleton-text">&nbsp;</strong>
+                    <small id="totalCurrenciesNote">No currencies held</small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <span>Transactions</span>
+                    <strong id="totalTransactions" class="skeleton skeleton-text">&nbsp;</strong>
+                    <small id="totalTransactionsNote">No transactions</small>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- CONTENT -->
+
+            <section class="content-grid">
+
+
+                <div class="card">
+
+                    <div class="card-header-row">
+                        <h2>Portfolio Overview</h2>
+                    </div>
+
+                    <div class="portfolio-donut-wrap" id="portfolioChartWrap" hidden>
+                        <canvas id="portfolioDonut"></canvas>
+                    </div>
+
+                    <div id="portfolioBody">
+
+                        <div class="empty">
+                            <div aria-hidden="true">◈</div>
+                            <strong>No portfolio data</strong>
+                            <p>Your portfolio will appear here when you have assets.</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="card">
+
+                    <h2>Quick Actions</h2>
+
+                    <div class="quick-actions">
+
+                        <a href="pages/send.html">
+                            <span aria-hidden="true">➤</span>
+                            <strong>Send</strong>
+                        </a>
+
+                        <a href="pages/receive.html">
+                            <span aria-hidden="true">⇩</span>
+                            <strong>Receive</strong>
+                        </a>
+
+                        <a href="pages/exchange.html">
+                            <span aria-hidden="true">⇄</span>
+                            <strong>Exchange</strong>
+                        </a>
+
+                        <a href="pages/wallets.html">
+                            <span aria-hidden="true">+</span>
+                            <strong>Create Wallet</strong>
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- GUEST MESSAGE -->
+
+            <section
+                class="guest-message"
+                id="guestMessage"
+            >
+
+                <strong>You are currently browsing as a Guest.</strong>
+
+                <p>Sign in to create wallets, send funds, receive currency and manage transactions.</p>
+
+                <button id="signInButton" type="button">Sign In</button>
+
+            </section>
+
+
+
+            <!-- RECENT TRANSACTIONS -->
+
+            <section class="card recent">
+
+                <h2>Recent Transactions</h2>
+
+                <div id="recentBody">
+
+                    <div class="empty">
+                        <div aria-hidden="true">⇄</div>
+                        <strong>No transactions yet</strong>
+                        <p>Your transactions will appear here.</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <script src="js/api.js" defer></script>
+    <script src="js/theme.js" defer></script>
+    <script src="js/notifications.js" defer></script>
+    <script src="js/rates.js" defer></script>
+    <script src="js/dashboard.js" defer></script>
+
+</body>
+
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CryptoWallet - Admin Dashboard</title>
+
+    <link rel="stylesheet" href="../css/reports.css">
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="app-page">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                <div class="logo">₿</div>
+                <span>Crypto<span>Wallet</span></span>
+            </div>
+
+            <nav>
+                <a href="../index.html">◉ Dashboard</a>
+                <a href="wallets.html">▣ Wallets</a>
+                <a href="send.html">➤ Send</a>
+                <a href="receive.html">⇩ Receive</a>
+                <a href="exchange.html">⇄ Exchange</a>
+                <a href="split-bill.html">🧾 Split Bill</a>
+                <a href="transactions.html">▤ Transactions</a>
+                <a href="market.html">⌁ Market</a>
+                <a href="reports.html">▥ Reports</a>
+                <a href="admin.html" class="active" aria-current="page">🛡 Admin</a>
+            </nav>
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+                <a href="settings.html">⚙ Settings</a>
+                <a href="help.html">? Help & Support</a>
+                <button id="logout">↪ Logout</button>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+            <header class="header">
+                <div>
+                    <h1>Admin Dashboard</h1>
+                    <p>Platform-wide analytics, KYC review, and fraud management.</p>
+                </div>
+                <div class="avatar" id="avatar">A</div>
+            </header>
+
+
+            <p id="adminAccessError" class="hint" style="display:none;color:#ff6b6b;"></p>
+
+
+            <div id="adminContent" style="display:none;">
+
+                <!-- HEADLINE STATS -->
+
+                <section class="stats" id="adminStats">
+                    <!-- filled by admin.js -->
+                </section>
+
+
+                <!-- VOLUME CHART (simple CSS bar chart, no extra libs) -->
+
+                <section class="card">
+
+                    <h2>Transaction Volume — Last 14 Days</h2>
+
+                    <div
+                        id="volumeChart"
+                        style="display:flex;align-items:flex-end;gap:6px;height:160px;padding-top:20px;"
+                    >
+                        <!-- filled by admin.js -->
+                    </div>
+
+                </section>
+
+
+                <!-- VOLUME BY CURRENCY -->
+
+                <section class="card">
+
+                    <h2>Volume by Currency</h2>
+
+                    <div id="currencyVolumeTable">
+                        <!-- filled by admin.js -->
+                    </div>
+
+                </section>
+
+
+                <!-- FLAGGED ACCOUNTS (FRAUD) -->
+
+                <section class="card">
+
+                    <h2>Flagged Accounts</h2>
+                    <p class="hint">Accounts auto-flagged by the fraud velocity check, awaiting review.</p>
+
+                    <div id="flaggedUsersList">
+                        <!-- filled by admin.js -->
+                    </div>
+
+                </section>
+
+
+                <!-- PENDING KYC -->
+
+                <section class="card">
+
+                    <h2>Pending KYC Submissions</h2>
+
+                    <div id="pendingKYCList">
+                        <!-- filled by admin.js -->
+                    </div>
+
+                </section>
+
+            </div>
+
+        </main>
+
+    </div>
+
+
+    <div id="toast" class="toast"></div>
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+    <script src="../js/theme.js"></script>
+    <script src="../js/admin.js"></script>
+
+</body>
+
+</html>

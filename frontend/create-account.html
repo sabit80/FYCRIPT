@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Create Account</title>
+
+    <link
+        rel="stylesheet"
+        href="css/create-account.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a href="#registerForm" class="skip-link">Skip to sign-up form</a>
+
+    <button
+        type="button"
+        class="icon-button theme-toggle-floating"
+        data-theme-toggle
+        aria-pressed="false"
+        aria-label="Toggle dark mode"
+    >
+        <span aria-hidden="true">🌓</span>
+    </button>
+
+    <main class="register-page">
+
+
+        <!-- =========================================
+             LEFT SIDE
+        ========================================== -->
+
+        <section class="register-brand">
+
+            <div class="brand-content">
+
+                <div class="brand">
+
+                    <div class="brand-icon">
+                        ₿
+                    </div>
+
+                    <span>
+                        Crypto<span>Wallet</span>
+                    </span>
+
+                </div>
+
+
+                <div class="brand-text">
+
+                    <h1>
+                        Start your
+                        <br>
+                        <span>financial journey.</span>
+                    </h1>
+
+                    <p>
+                        Create your CryptoWallet account
+                        and manage fiat and cryptocurrency
+                        from one secure platform.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =========================================
+             RIGHT SIDE
+        ========================================== -->
+
+        <section class="register-section">
+
+            <div class="register-container">
+
+
+                <div class="register-header">
+
+                    <h2>
+                        Create Account
+                    </h2>
+
+                    <p>
+                        Create your account to get started
+                    </p>
+
+                </div>
+
+
+
+                <!-- =================================
+                     FORM
+                ================================== -->
+
+                <form id="registerForm">
+
+
+                    <!-- NAME -->
+
+                    <div class="form-group">
+
+                        <label for="name">
+                            Full Name
+                        </label>
+
+                        <input
+                            type="text"
+                            id="name"
+                            placeholder="Enter your full name"
+                            autocomplete="name"
+                            required
+                        >
+
+                        <small
+                            id="nameError"
+                            class="error"
+                        ></small>
+
+                    </div>
+
+
+
+                    <!-- EMAIL -->
+
+                    <div class="form-group">
+
+                        <label for="email">
+                            Email Address
+                        </label>
+
+                        <input
+                            type="email"
+                            id="email"
+                            placeholder="Enter your email"
+                            autocomplete="email"
+                            required
+                        >
+
+                        <small
+                            id="emailError"
+                            class="error"
+                        ></small>
+
+                    </div>
+
+
+
+                    <!-- PHONE (this becomes your account number —
+                         other users send money to it, bKash-style) -->
+
+                    <div class="form-group">
+
+                        <label for="phone">
+                            Phone Number
+                        </label>
+
+                        <input
+                            type="tel"
+                            id="phone"
+                            placeholder="e.g. 01712345678"
+                            autocomplete="tel"
+                            required
+                        >
+
+                        <small
+                            id="phoneError"
+                            class="error"
+                        ></small>
+
+                    </div>
+
+
+
+                    <!-- PREFERRED CURRENCY (your default receive wallet) -->
+
+                    <div class="form-group">
+
+                        <label for="preferredCurrency">
+                            Preferred Receive Currency
+                        </label>
+
+                        <select id="preferredCurrency">
+                            <option value="BDT">BDT — Bangladeshi Taka</option>
+                            <option value="USD">USD — US Dollar</option>
+                            <option value="EUR">EUR — Euro</option>
+                            <option value="GBP">GBP — British Pound</option>
+                            <option value="BTC">BTC — Bitcoin</option>
+                            <option value="ETH">ETH — Ethereum</option>
+                            <option value="USDT">USDT — Tether</option>
+                        </select>
+
+                        <small class="hint">
+                            This is the wallet that receives money whenever
+                            someone sends to your phone number. You can add
+                            more wallets in any currency later.
+                        </small>
+
+                    </div>
+
+
+
+                    <!-- REFERRAL CODE (optional) -->
+
+                    <div class="form-group">
+
+                        <label for="referralCode">
+                            Referral Code (optional)
+                        </label>
+
+                        <input
+                            type="text"
+                            id="referralCode"
+                            placeholder="e.g. 4F3A9B21"
+                            autocomplete="off"
+                        >
+
+                        <small class="hint">
+                            Have a friend's referral code? Enter it here.
+                        </small>
+
+                    </div>
+
+
+
+                    <!-- PASSWORD -->
+
+                    <div class="form-group">
+
+                        <label for="password">
+                            Password
+                        </label>
+
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Create a password"
+                            autocomplete="new-password"
+                            required
+                        >
+
+                        <small
+                            id="passwordError"
+                            class="error"
+                        ></small>
+
+                    </div>
+
+
+
+                    <!-- CONFIRM PASSWORD -->
+
+                    <div class="form-group">
+
+                        <label for="confirmPassword">
+                            Confirm Password
+                        </label>
+
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            placeholder="Confirm your password"
+                            autocomplete="new-password"
+                            required
+                        >
+
+                        <small
+                            id="confirmPasswordError"
+                            class="error"
+                        ></small>
+
+                    </div>
+
+
+
+                    <!-- TERMS -->
+
+                    <label class="terms">
+
+                        <input
+                            type="checkbox"
+                            id="terms"
+                        >
+
+                        <span>
+                            I agree to the terms and conditions
+                        </span>
+
+                    </label>
+
+
+                    <small
+                        id="termsError"
+                        class="error"
+                    ></small>
+
+
+
+                    <!-- CREATE ACCOUNT -->
+
+                    <button
+                        type="submit"
+                        class="register-button"
+                    >
+                        Create Account
+                    </button>
+
+                </form>
+
+
+
+                <!-- LOGIN -->
+
+                <div class="login-link">
+
+                    <span>
+                        Already have an account?
+                    </span>
+
+                    <a href="login.html">
+                        Sign In
+                    </a>
+
+                </div>
+
+
+
+                <!-- BACK -->
+
+                <a
+                    href="login.html"
+                    class="back-link"
+                >
+                    ← Back to Login
+                </a>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+
+    <!-- TOAST -->
+
+    <div
+        id="toast"
+        class="toast"
+        role="status"
+        aria-live="polite"
+    ></div>
+
+
+
+    <script src="js/api.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/create-account.js"></script>
+
+</body>
+
+</html>

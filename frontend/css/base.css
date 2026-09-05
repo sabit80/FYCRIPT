@@ -1,0 +1,809 @@
+/* =====================================================
+   CRYPTOWALLET — SHARED BASE STYLES / DESIGN SYSTEM
+
+   Pages that @import this file: help.css, market.css,
+   reports.css, settings.css (add "@import url('base.css');"
+   to a page's own CSS file to opt any other page into the
+   same tokens/dark-mode/glass/skeleton/animation system).
+
+   Everything below is driven by CSS variables so a single
+   edit here (or a theme switch via js/theme.js) cascades
+   everywhere instead of needing per-page changes.
+===================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+:root {
+
+    /* ---- brand ---- */
+    --accent: #6c63ff;
+    --accent-strong: #574fd6;
+    --accent-soft: rgba(108, 99, 255, 0.12);
+    --accent-gradient: linear-gradient(135deg, #7c73ff 0%, #6c63ff 45%, #4d2be4 100%);
+
+    /* ---- surfaces (light theme, default) ---- */
+    --bg: #f5f7fb;
+    --bg-gradient:
+        radial-gradient(circle at 15% 10%, rgba(124, 115, 255, 0.10), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(77, 43, 228, 0.08), transparent 45%),
+        var(--bg);
+    --surface: #ffffff;
+    --surface-glass: rgba(255, 255, 255, 0.65);
+    --surface-glass-border: rgba(255, 255, 255, 0.5);
+    --border: #e5e7eb;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --text-faint: #9ca3af;
+    --sidebar-bg: #111827;
+    --sidebar-text: #9ca3af;
+
+    /* ---- feedback colors ---- */
+    --success: #16a34a;
+    --success-strong: #047857;
+    --success-soft: #ecfdf5;
+    --danger: #dc2626;
+    --danger-strong: #b91c1c;
+    --danger-soft: #fef2f2;
+
+    /* ---- extra tones used by page-specific CSS ---- */
+    --accent-light: #7c73ff;
+    --surface-alt: #f9fafb;
+    --border-strong: #d1d5db;
+    --sidebar-hover: #1f2937;
+
+    /* ---- elevation ---- */
+    --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.06);
+    --shadow-md: 0 8px 24px rgba(17, 24, 39, 0.08);
+    --shadow-lg: 0 20px 45px rgba(76, 61, 191, 0.16);
+
+    /* ---- shape / motion ---- */
+    --radius: 12px;
+    --radius-lg: 20px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dark theme: toggled by js/theme.js setting
+   <html data-theme="dark">, persisted in localStorage. */
+:root[data-theme="dark"] {
+
+    --bg: #0b0c14;
+    --bg-gradient:
+        radial-gradient(circle at 15% 10%, rgba(124, 115, 255, 0.18), transparent 40%),
+        radial-gradient(circle at 85% 0%, rgba(77, 43, 228, 0.14), transparent 45%),
+        var(--bg);
+    --surface: #151726;
+    --surface-glass: rgba(21, 23, 38, 0.6);
+    --surface-glass-border: rgba(255, 255, 255, 0.08);
+    --border: #262a3d;
+    --text: #f3f4f6;
+    --text-muted: #9297b0;
+    --text-faint: #6b7086;
+    --sidebar-bg: #08090f;
+    --sidebar-text: #8b90a8;
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.45);
+
+    --accent-light: #8f87ff;
+    --surface-alt: #1b1e30;
+    --border-strong: #363b54;
+    --sidebar-hover: #242b3a;
+    --success-soft: rgba(16, 185, 96, 0.12);
+    --danger-soft: rgba(220, 38, 38, 0.14);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text);
+    transition: background-color 0.3s var(--ease), color 0.3s var(--ease);
+}
+
+a {
+    text-decoration: none;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    transition: transform 0.12s var(--ease), background-color 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+/* Tactile press feedback on every button in the app. */
+button:active {
+    transform: scale(0.96);
+}
+
+
+/* =====================================================
+   ACCESSIBILITY UTILITIES
+===================================================== */
+
+/* Visually hidden but still readable by screen readers —
+   use for icon-only controls' text label, or extra context
+   sighted users don't need repeated on screen. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip-to-content link: first focusable element on every
+   page, invisible until a keyboard user tabs to it. */
+.skip-link {
+    position: absolute;
+    left: 12px;
+    top: -48px;
+    background: var(--accent);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 100;
+    transition: top 0.2s var(--ease);
+}
+
+.skip-link:focus {
+    top: 12px;
+}
+
+/* Consistent, visible keyboard-focus ring everywhere
+   (mouse clicks don't trigger :focus-visible, so this
+   never shows up as an unwanted click outline). */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+
+/* =====================================================
+   LAYOUT
+===================================================== */
+
+.app-page {
+    min-height: 100vh;
+    display: flex;
+}
+
+
+/* =====================================================
+   SIDEBAR
+===================================================== */
+
+.sidebar {
+    width: 245px;
+    min-height: 100vh;
+    background: var(--sidebar-bg);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 25px 16px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transition: background-color 0.3s var(--ease);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-size: 21px;
+    font-weight: 800;
+    padding: 0 10px;
+    margin-bottom: 45px;
+}
+
+.brand span span {
+    color: #a89bff;
+}
+
+.logo {
+    width: 39px;
+    height: 39px;
+    border-radius: 10px;
+    background: var(--accent-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    box-shadow: var(--shadow-md);
+}
+
+nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+nav a,
+.sidebar-bottom a,
+.sidebar-bottom button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 13px;
+    border-radius: 8px;
+    color: var(--sidebar-text);
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s ease;
+}
+
+nav a:hover,
+.sidebar-bottom a:hover,
+.sidebar-bottom button:hover {
+    background: #1f2937;
+    color: white;
+}
+
+nav a.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* Icon glyphs are decorative — the link text already says
+   "Dashboard"/"Wallets"/etc, so screen readers should skip
+   the symbol rather than announce "black circle" etc.
+   Wrap each nav icon in <span class="nav-icon" aria-hidden="true">. */
+.nav-icon {
+    display: inline-block;
+    width: 1em;
+}
+
+.sidebar-bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Dark-mode toggle button, added to .sidebar-bottom on
+   every page (see js/theme.js + the small markup addition
+   in each page). Same visual language as the other
+   sidebar-bottom rows so it doesn't look bolted on. */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.theme-toggle .nav-icon {
+    transition: transform 0.3s var(--ease);
+}
+
+:root[data-theme="dark"] .theme-toggle .icon-dark { display: none; }
+:root:not([data-theme="dark"]) .theme-toggle .icon-light { display: none; }
+
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.main {
+    margin-left: 245px;
+    width: calc(100% - 245px);
+    padding: 35px;
+    animation: page-fade-in 0.4s var(--ease);
+}
+
+@keyframes page-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    font-size: 30px;
+    font-weight: 800;
+    margin-bottom: 7px;
+}
+
+.header p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Small icon-only round button used for the balance
+   hide/show eye toggle and the dark-mode header toggle. */
+.icon-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Floating variant of .icon-button for pages with no
+   sidebar (login/create-account) to host the dark-mode
+   toggle. */
+.theme-toggle-floating {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 60;
+    background: var(--surface);
+}
+
+
+/* =====================================================
+   CARDS  (glassmorphism)
+===================================================== */
+
+.card {
+    background: var(--surface-glass);
+    border: 1px solid var(--surface-glass-border);
+    border-radius: var(--radius-lg);
+    padding: 25px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-md);
+    transition: background-color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+
+.card h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+}
+
+.section-title p,
+.section-heading p {
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+
+/* =====================================================
+   FORMS
+===================================================== */
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.error {
+    display: block;
+    min-height: 15px;
+    color: var(--danger);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.primary-button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.primary-button:hover {
+    background: var(--accent-strong);
+}
+
+.empty {
+    text-align: center;
+    padding: 40px 15px;
+    color: var(--text-muted);
+}
+
+.empty div {
+    font-size: 30px;
+    margin-bottom: 10px;
+}
+
+.empty strong {
+    display: block;
+    color: var(--text);
+    margin-bottom: 6px;
+}
+
+
+/* =====================================================
+   SKELETON LOADING
+
+   Add class="skeleton" to any placeholder block while its
+   real content is being fetched, then remove the class
+   (and set the real text/markup) once the request resolves.
+   e.g. <strong class="skeleton skeleton-text">&nbsp;</strong>
+===================================================== */
+
+.skeleton {
+    position: relative;
+    color: transparent !important;
+    background: var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+}
+
+.skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.45),
+        transparent
+    );
+    animation: skeleton-shimmer 1.4s infinite;
+}
+
+:root[data-theme="dark"] .skeleton::after {
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.08),
+        transparent
+    );
+}
+
+@keyframes skeleton-shimmer {
+    100% { transform: translateX(100%); }
+}
+
+.skeleton-text {
+    display: inline-block;
+    min-width: 60px;
+}
+
+
+/* =====================================================
+   NUMBER COUNT-UP (balance / stat animation)
+   Applied via js: element gets .count-up-flash briefly
+   right after its text is set to the fetched value.
+===================================================== */
+
+@keyframes count-up-flash {
+    from { opacity: 0.3; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.count-up-flash {
+    animation: count-up-flash 0.5s var(--ease);
+}
+
+
+/* =====================================================
+   TOAST
+===================================================== */
+
+.toast {
+    position: fixed;
+    right: 25px;
+    bottom: 25px;
+    padding: 13px 18px;
+    background: var(--sidebar-bg);
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(15px);
+    pointer-events: none;
+    transition: 0.25s ease;
+    z-index: 50;
+    box-shadow: var(--shadow-lg);
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Slim auto-countdown bar along the toast's bottom edge —
+   purely CSS-driven (keyed off the .show class), so it
+   works with the existing showMessage()/showToast() JS in
+   every page without any script changes. */
+.toast {
+    overflow: hidden;
+}
+
+.toast::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 100%;
+    background: var(--accent-light);
+    transform-origin: left;
+    transform: scaleX(0);
+}
+
+.toast.show::after {
+    animation: toast-progress 3.2s linear forwards;
+}
+
+@keyframes toast-progress {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+
+/* =====================================================
+   HOVER LIFT  (cards, stat cards, quick actions, list rows)
+===================================================== */
+
+.card,
+.stat-card,
+.quick-actions a,
+.portfolio-item,
+.transaction-item {
+    transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+}
+
+.card:hover,
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.quick-actions a:hover,
+.portfolio-item:hover {
+    transform: translateY(-2px);
+}
+
+
+/* =====================================================
+   SUCCESS CHECKMARK OVERLAY
+
+   Shown briefly by js/success-animation.js after a Send /
+   Exchange / Fund action completes. Purely additive: pages
+   that don't call showSuccessCheck() never see this markup.
+===================================================== */
+
+.success-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 12, 20, 0.35);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s var(--ease);
+}
+
+.success-overlay.show {
+    opacity: 1;
+}
+
+.success-circle {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0.7);
+    transition: transform 0.25s var(--ease);
+}
+
+.success-overlay.show .success-circle {
+    transform: scale(1);
+}
+
+.success-circle svg {
+    width: 44px;
+    height: 44px;
+}
+
+.success-circle path {
+    fill: none;
+    stroke: var(--success);
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+}
+
+.success-overlay.show .success-circle path {
+    animation: success-draw 0.4s 0.15s var(--ease) forwards;
+}
+
+@keyframes success-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 210px;
+    }
+
+    .main {
+        margin-left: 210px;
+        width: calc(100% - 210px);
+    }
+}
+
+@media (max-width: 700px) {
+
+    .sidebar {
+        position: static;
+        width: 100%;
+        min-height: auto;
+    }
+
+    .main {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* Respect the OS-level "reduce motion" accessibility
+   preference — turn off decorative animation for anyone
+   who's asked for it. */
+@media (prefers-reduced-motion: reduce) {
+
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* =====================================================
+   GENERIC LIST ROW
+   Used by newer feature UIs (Settings > Scheduled
+   Payments, Admin > Flagged Accounts / Pending KYC /
+   Currency Volume) for a simple label-left, action-right
+   row inside a .card without needing a page-specific
+   stylesheet for each one.
+===================================================== */
+
+.list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.list-row:last-child {
+    border-bottom: none;
+}
+
+.list-row button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.list-row button:hover {
+    background: var(--border);
+}
+
+.danger-button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #d9484f;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+}
+
+.danger-button:hover {
+    background: #c23e44;
+}
+
+.category-tag {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: 11px;
+}

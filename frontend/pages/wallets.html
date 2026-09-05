@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Wallets</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/wallets.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="wallet-page">
+
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="logo">
+                    ₿
+                </div>
+
+                <span>
+                    Crypto<span>Wallet</span>
+                </span>
+
+            </div>
+
+
+            <nav>
+
+                <a href="../index.html">
+                    ◉ Dashboard
+                </a>
+
+                <a
+                    href="wallets.html"
+                    class="active"
+                    aria-current="page"
+                >
+                    ▣ Wallets
+                </a>
+
+                <a href="send.html">
+                    ➤ Send
+                </a>
+
+                <a href="receive.html">
+                    ⇩ Receive
+                </a>
+
+                <a href="exchange.html">
+                    ⇄ Exchange
+                </a>
+
+                <a href="split-bill.html">
+                    🧾 Split Bill
+                </a>
+
+                <a href="transactions.html">
+                    ▤ Transactions
+                </a>
+
+                <a href="market.html">
+                    ⌁ Market
+                </a>
+
+                <a href="reports.html">
+                    ▥ Reports
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+
+                <a href="settings.html">
+                    ⚙ Settings
+                </a>
+
+                <a href="help.html">
+                    ? Help & Support
+                </a>
+
+                <button id="logout">
+                    ↪ Logout
+                </button>
+
+            </div>
+
+        </aside>
+
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+
+            <!-- HEADER -->
+
+            <header class="header">
+
+                <div>
+
+                    <h1>
+                        My Wallets
+                    </h1>
+
+                    <p id="walletSubtitle">
+                        Manage your wallets and currencies
+                    </p>
+
+                </div>
+
+
+                <div
+                    class="avatar"
+                    id="avatar"
+                >
+                    U
+                </div>
+
+            </header>
+
+
+
+            <!-- WALLET SUMMARY -->
+
+            <section class="wallet-summary">
+
+
+                <div class="summary-card">
+
+                    <span>
+                        Total Wallets
+                    </span>
+
+                    <strong id="totalWallets">
+                        0
+                    </strong>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <span>
+                        Total Currencies
+                    </span>
+
+                    <strong id="totalCurrencies">
+                        0
+                    </strong>
+
+                </div>
+
+
+            </section>
+
+
+
+            <!-- CREATE WALLET -->
+
+            <section class="create-wallet-card">
+
+                <div class="section-title">
+
+                    <div>
+
+                        <h2>
+                            Create New Wallet
+                        </h2>
+
+                        <p>
+                            Add a wallet for a fiat or cryptocurrency.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <form id="walletForm">
+
+
+                    <div class="form-row">
+
+
+                        <div class="form-group">
+
+                            <label for="walletName">
+                                Wallet Name
+                            </label>
+
+                            <input
+                                type="text"
+                                id="walletName"
+                                placeholder="e.g. Main Wallet"
+                                required
+                            >
+
+                            <small
+                                id="walletNameError"
+                                class="error"
+                            ></small>
+
+                        </div>
+
+
+                        <div class="form-group">
+
+                            <label for="currency">
+                                Currency
+                            </label>
+
+                            <select id="currency">
+
+                                <option value="">
+                                    Select Currency
+                                </option>
+
+                                <option value="USD">
+                                    USD - US Dollar
+                                </option>
+
+                                <option value="EUR">
+                                    EUR - Euro
+                                </option>
+
+                                <option value="BDT">
+                                    BDT - Bangladeshi Taka
+                                </option>
+
+                                <option value="GBP">
+                                    GBP - British Pound
+                                </option>
+
+                                <option value="BTC">
+                                    BTC - Bitcoin
+                                </option>
+
+                                <option value="ETH">
+                                    ETH - Ethereum
+                                </option>
+
+                                <option value="USDT">
+                                    USDT - Tether
+                                </option>
+
+                            </select>
+
+                            <small
+                                id="currencyError"
+                                class="error"
+                            ></small>
+
+                        </div>
+
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        class="create-button"
+                    >
+                        + Create Wallet
+                    </button>
+
+                </form>
+
+            </section>
+
+
+
+            <!-- WALLET LIST -->
+
+            <section class="wallet-section">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>
+                            Your Wallets
+                        </h2>
+
+                        <p>
+                            All wallets belonging to your account.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="walletList"
+                    class="wallet-list"
+                >
+
+                    <!-- JavaScript will insert wallets here -->
+
+                </div>
+
+            </section>
+
+
+        </main>
+
+    </div>
+
+
+
+    <!-- TOAST -->
+
+    <div
+        id="toast"
+        class="toast"
+        role="status"
+        aria-live="polite"
+    ></div>
+
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/success-animation.js"></script>
+<script src="../js/wallets.js"></script>
+
+</body>
+
+</html>

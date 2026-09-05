@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Receive</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/receive.css"
+    >
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+<div class="receive-page">
+
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="logo">
+                ₿
+            </div>
+
+            <span>
+                Crypto<span>Wallet</span>
+            </span>
+
+        </div>
+
+
+        <nav>
+
+            <a href="../index.html">
+                ◉ Dashboard
+            </a>
+
+            <a href="wallets.html">
+                ▣ Wallets
+            </a>
+
+            <a href="send.html">
+                ➤ Send
+            </a>
+
+            <a
+                href="receive.html"
+                class="active"
+                    aria-current="page"
+            >
+                ⇩ Receive
+            </a>
+
+            <a href="exchange.html">
+                ⇄ Exchange
+            </a>
+
+            <a href="split-bill.html">
+                🧾 Split Bill
+            </a>
+
+            <a href="transactions.html">
+                ▤ Transactions
+            </a>
+
+            <a href="market.html">
+                ⌁ Market
+            </a>
+
+            <a href="reports.html">
+                ▥ Reports
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+
+            <a href="settings.html">
+                ⚙ Settings
+            </a>
+
+            <a href="help.html">
+                ? Help & Support
+            </a>
+
+            <button id="logout">
+                ↪ Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- MAIN -->
+
+    <main class="main" id="mainContent">
+
+
+        <!-- HEADER -->
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Receive
+                </h1>
+
+                <p>
+                    Receive currency into one of your wallets.
+                </p>
+
+            </div>
+
+
+            <div
+                class="avatar"
+                id="avatar"
+            >
+                U
+            </div>
+
+        </header>
+
+
+
+        <!-- RECEIVE CONTENT -->
+
+        <section class="receive-container">
+
+
+            <div class="receive-card account-number-card">
+
+                <div class="card-header">
+
+                    <h2>
+                        Your Account Number
+                    </h2>
+
+                    <p>
+                        Share this phone number to receive money from any
+                        CryptoWallet user — just like bKash. It always lands
+                        in your default receive wallet, then you can shift
+                        it to any other wallet from the Wallets page.
+                    </p>
+
+                </div>
+
+                <div class="receive-box" id="accountNumberBox">
+
+                    <label>
+                        Phone Number
+                    </label>
+
+                    <div class="identifier-row">
+
+                        <input
+                            type="text"
+                            id="accountPhone"
+                            readonly
+                        >
+
+                        <button
+                            type="button"
+                            id="copyAccountNumber"
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div
+                    id="accountCopyMessage"
+                    class="success-message hidden"
+                ></div>
+
+                <div class="receive-box" id="qrCodeBox" style="text-align:center;margin-top:16px;">
+
+                    <label>
+                        Scan to Send Me Money
+                    </label>
+
+                    <div>
+                        <img
+                            id="receiveQRImage"
+                            alt="QR code for your account"
+                            style="max-width:220px;margin:12px auto;display:block;border-radius:10px;background:#fff;padding:8px;"
+                        >
+                    </div>
+
+                    <p class="hint">
+                        Anyone with the CryptoWallet app can scan this on the
+                        Send page to instantly fill in your phone number.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="receive-card">
+
+
+                <div class="card-header">
+
+                    <h2>
+                        Receive Currency
+                    </h2>
+
+                    <p>
+                        Select a wallet to view its receiving information.
+                    </p>
+
+                </div>
+
+
+
+                <!-- WALLET SELECT -->
+
+                <div class="form-group">
+
+                    <label for="walletSelect">
+                        Receive Into
+                    </label>
+
+                    <select id="walletSelect">
+
+                        <option value="">
+                            Select a wallet
+                        </option>
+
+                    </select>
+
+                    <small
+                        id="walletError"
+                        class="error"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- WALLET INFORMATION -->
+
+                <div
+                    id="walletInformation"
+                    class="wallet-information hidden"
+                >
+
+
+                    <div class="wallet-icon">
+                        ₿
+                    </div>
+
+
+                    <div class="wallet-details">
+
+                        <span>
+                            Wallet
+                        </span>
+
+                        <strong id="walletName">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="wallet-details">
+
+                        <span>
+                            Currency
+                        </span>
+
+                        <strong id="walletCurrency">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="wallet-details">
+
+                        <span>
+                            Current Balance
+                        </span>
+
+                        <strong id="walletBalance">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- RECEIVE IDENTIFIER -->
+
+                <div
+                    id="receiveBox"
+                    class="receive-box hidden"
+                >
+
+                    <label>
+                        Wallet ID
+                    </label>
+
+                    <div class="identifier-row">
+
+                        <input
+                            type="text"
+                            id="walletIdentifier"
+                            readonly
+                        >
+
+                        <button
+                            type="button"
+                            id="copyButton"
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+
+                    <p>
+                        Give this Wallet ID to another
+                        CryptoWallet user so they can send
+                        currency to this wallet.
+                    </p>
+
+                </div>
+
+
+
+                <div
+                    id="successMessage"
+                    class="success-message hidden"
+                >
+                    Wallet information copied successfully.
+                </div>
+
+
+            </div>
+
+
+
+            <!-- INFORMATION CARD -->
+
+            <div class="info-card">
+
+                <div class="info-icon">
+                    i
+                </div>
+
+                <div>
+
+                    <h3>
+                        How receiving works
+                    </h3>
+
+                    <p>
+                        Select one of your wallets and
+                        share its Wallet ID with the sender.
+                    </p>
+
+                    <p>
+                        The sender will use this identifier
+                        to send currency to your wallet.
+                    </p>
+
+                    <p>
+                        Your balance will only change after
+                        a successful transfer.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+
+<script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/receive.js"></script>
+
+</body>
+
+</html>

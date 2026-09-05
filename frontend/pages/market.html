@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CryptoWallet - Market</title>
+
+    <link rel="stylesheet" href="../css/market.css">
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="app-page">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                <div class="logo">₿</div>
+                <span>Crypto<span>Wallet</span></span>
+            </div>
+
+            <nav>
+                <a href="../index.html">◉ Dashboard</a>
+                <a href="wallets.html">▣ Wallets</a>
+                <a href="send.html">➤ Send</a>
+                <a href="receive.html">⇩ Receive</a>
+                <a href="exchange.html">⇄ Exchange</a>
+                <a href="split-bill.html">🧾 Split Bill</a>
+                <a href="transactions.html">▤ Transactions</a>
+                <a href="market.html" class="active"
+                    aria-current="page">⌁ Market</a>
+                <a href="reports.html">▥ Reports</a>
+            </nav>
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+                <a href="settings.html">⚙ Settings</a>
+                <a href="help.html">? Help & Support</a>
+                <button id="logout">↪ Logout</button>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+            <header class="header">
+                <div>
+                    <h1>Market</h1>
+                    <p>Live-style rates against USD (simulated)</p>
+                </div>
+                <div class="avatar" id="avatar">A</div>
+            </header>
+
+            <section class="market-grid" id="marketGrid">
+                <!-- filled by market.js -->
+            </section>
+
+            <section class="card market-note">
+                <h2>About these rates</h2>
+                <p>
+                    CryptoWallet is a demo wallet, so the rates above are
+                    fixed simulated values, not a live market feed. They are
+                    the same numbers used across Send, Exchange and the
+                    Dashboard so conversions stay consistent everywhere.
+                </p>
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <div id="toast" class="toast"></div>
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+    <script src="../js/market.js"></script>
+
+</body>
+
+</html>

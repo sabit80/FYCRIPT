@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CryptoWallet - Help & Support</title>
+
+    <link rel="stylesheet" href="../css/help.css">
+
+</head>
+
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+    <div class="app-page">
+
+        <!-- SIDEBAR -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                <div class="logo">₿</div>
+                <span>Crypto<span>Wallet</span></span>
+            </div>
+
+            <nav>
+                <a href="../index.html">◉ Dashboard</a>
+                <a href="wallets.html">▣ Wallets</a>
+                <a href="send.html">➤ Send</a>
+                <a href="receive.html">⇩ Receive</a>
+                <a href="exchange.html">⇄ Exchange</a>
+                <a href="split-bill.html">🧾 Split Bill</a>
+                <a href="transactions.html">▤ Transactions</a>
+                <a href="market.html">⌁ Market</a>
+                <a href="reports.html">▥ Reports</a>
+            </nav>
+
+            <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+                <a href="settings.html">⚙ Settings</a>
+                <a href="help.html" class="active"
+                    aria-current="page">? Help & Support</a>
+                <button id="logout">↪ Logout</button>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN -->
+
+        <main class="main" id="mainContent">
+
+            <header class="header">
+                <div>
+                    <h1>Help & Support</h1>
+                    <p>Answers to common questions about CryptoWallet</p>
+                </div>
+                <div class="avatar" id="avatar">A</div>
+            </header>
+
+            <section class="card">
+
+                <div class="faq-list" id="faqList">
+                    <!-- filled by help.js -->
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <div id="toast" class="toast"></div>
+
+
+    <script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/help.js"></script>
+
+</body>
+
+</html>

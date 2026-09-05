@@ -1,0 +1,55 @@
+@import url("base.css");
+
+.settings-card {
+    max-width: 480px;
+    margin-bottom: 25px;
+}
+
+.hint {
+    display: block;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Bank account list (Settings page) */
+.bank-account-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+.bank-account-row .remove-bank {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.bank-account-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.bank-account-actions .deposit-bank,
+.bank-account-actions .withdraw-bank {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text, #ddd);
+}
+.bank-account-actions .deposit-bank:hover {
+    border-color: var(--success, #2e7d32);
+    color: var(--success, #2e7d32);
+}
+.bank-account-actions .withdraw-bank:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}

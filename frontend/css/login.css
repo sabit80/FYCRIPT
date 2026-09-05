@@ -1,0 +1,552 @@
+@import url("base.css");
+
+/* Reset, base typography, and shared element defaults now
+   come from base.css — removed the page's own duplicate
+   (Arial-based) reset block so login.html renders with the
+   same Inter font and theme tokens as every other page. */
+
+
+
+/* =====================================================
+   MAIN PAGE
+===================================================== */
+
+.login-page {
+
+    min-height: 100vh;
+
+    display: grid;
+
+    grid-template-columns:
+        1fr
+        1fr;
+
+}
+
+
+
+/* =====================================================
+   LEFT BRAND SECTION
+===================================================== */
+
+.login-brand {
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--text),
+            var(--text)
+        );
+
+    color: white;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 60px;
+
+}
+
+
+.brand-content {
+
+    max-width: 500px;
+
+}
+
+
+
+/* =====================================================
+   BRAND
+===================================================== */
+
+.brand {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+    font-size: 25px;
+
+    font-weight: 700;
+
+    margin-bottom: 100px;
+
+}
+
+
+.brand span span {
+
+    color: var(--accent);
+
+}
+
+
+.brand-icon {
+
+    width: 45px;
+    height: 45px;
+
+    border-radius: 12px;
+
+    background: var(--accent);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 25px;
+
+}
+
+
+
+/* =====================================================
+   BRAND TEXT
+===================================================== */
+
+.brand-text h1 {
+
+    font-size: 52px;
+
+    line-height: 1.1;
+
+    margin-bottom: 25px;
+
+}
+
+
+.brand-text h1 span {
+
+    color: var(--accent-light);
+
+}
+
+
+.brand-text p {
+
+    color: var(--text-faint);
+
+    font-size: 16px;
+
+    line-height: 1.7;
+
+    max-width: 430px;
+
+}
+
+
+
+/* =====================================================
+   RIGHT LOGIN SECTION
+===================================================== */
+
+.login-section {
+
+    background: var(--surface);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 40px;
+
+}
+
+
+.login-container {
+
+    width: 100%;
+
+    max-width: 430px;
+
+}
+
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.login-header {
+
+    margin-bottom: 35px;
+
+}
+
+
+.login-header h2 {
+
+    font-size: 32px;
+
+    color: var(--text);
+
+    margin-bottom: 9px;
+
+}
+
+
+.login-header p {
+
+    color: var(--text-muted);
+
+    font-size: 14px;
+
+}
+
+
+
+/* =====================================================
+   FORM
+===================================================== */
+
+.form-group {
+
+    margin-bottom: 21px;
+
+}
+
+
+.form-group label {
+
+    display: block;
+
+    margin-bottom: 8px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    color: var(--text);
+
+}
+
+
+.form-group input {
+
+    width: 100%;
+
+    padding: 14px 15px;
+
+    border: 1px solid var(--border-strong);
+
+    border-radius: 9px;
+
+    outline: none;
+
+    color: var(--text);
+
+    transition: 0.2s ease;
+
+}
+
+
+.form-group input:focus {
+
+    border-color: var(--accent);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(108, 99, 255, 0.12);
+
+}
+
+
+.form-group input::placeholder {
+
+    color: var(--text-faint);
+
+}
+
+
+
+/* =====================================================
+   ERROR
+===================================================== */
+
+.error {
+
+    display: block;
+
+    color: var(--danger);
+
+    font-size: 12px;
+
+    margin-top: 6px;
+
+    min-height: 15px;
+
+}
+
+
+
+/* =====================================================
+   LOGIN BUTTON
+===================================================== */
+
+.login-button {
+
+    width: 100%;
+
+    padding: 14px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: var(--accent);
+
+    color: white;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+
+}
+
+
+.login-button:hover {
+
+    background: var(--accent-strong);
+
+    transform: translateY(-1px);
+
+}
+
+
+.login-button:active {
+
+    transform: translateY(0);
+
+}
+
+
+
+/* =====================================================
+   CREATE ACCOUNT
+===================================================== */
+
+.create-account {
+
+    text-align: center;
+
+    margin-top: 23px;
+
+    font-size: 14px;
+
+    color: var(--text-muted);
+
+}
+
+
+.create-account a {
+
+    color: var(--accent);
+
+    font-weight: 600;
+
+    margin-left: 5px;
+
+}
+
+
+.create-account a:hover {
+
+    text-decoration: underline;
+
+}
+
+
+
+/* =====================================================
+   GUEST SECTION
+===================================================== */
+
+.guest-section {
+
+    margin-top: 28px;
+
+}
+
+
+.divider {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 15px;
+
+    color: var(--text-faint);
+
+    font-size: 11px;
+
+    margin-bottom: 18px;
+
+}
+
+
+.divider::before,
+.divider::after {
+
+    content: "";
+
+    flex: 1;
+
+    height: 1px;
+
+    background: var(--border);
+
+}
+
+
+.guest-button {
+
+    width: 100%;
+
+    padding: 13px;
+
+    border: 1px solid var(--border-strong);
+
+    border-radius: 9px;
+
+    background: var(--surface);
+
+    color: var(--text);
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+
+}
+
+
+.guest-button:hover {
+
+    background: var(--surface-alt);
+
+    border-color: var(--accent);
+
+    color: var(--accent);
+
+}
+
+
+
+/* =====================================================
+   TOAST
+===================================================== */
+
+.toast {
+
+    position: fixed;
+
+    bottom: 25px;
+
+    right: 25px;
+
+    background: var(--sidebar-bg);
+
+    color: white;
+
+    padding: 13px 18px;
+
+    border-radius: 8px;
+
+    font-size: 13px;
+
+    opacity: 0;
+
+    transform: translateY(15px);
+
+    pointer-events: none;
+
+    transition: 0.25s ease;
+
+}
+
+
+.toast.show {
+
+    opacity: 1;
+
+    transform: translateY(0);
+
+}
+
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 850px) {
+
+    .login-page {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .login-brand {
+
+        min-height: 300px;
+
+        padding: 40px;
+
+    }
+
+
+    .brand {
+
+        margin-bottom: 40px;
+
+    }
+
+
+    .brand-text h1 {
+
+        font-size: 38px;
+
+    }
+
+}
+
+
+@media (max-width: 500px) {
+
+    .login-section {
+
+        padding: 25px;
+
+    }
+
+
+    .login-brand {
+
+        padding: 30px;
+
+    }
+
+
+    .brand-text h1 {
+
+        font-size: 32px;
+
+    }
+
+}

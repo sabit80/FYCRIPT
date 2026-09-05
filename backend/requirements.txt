@@ -1,0 +1,23 @@
+Django==5.2.9
+django-cors-headers==4.9.0
+djangorestframework==3.18.0
+djangorestframework_simplejwt==5.5.1
+PyJWT==2.13.0
+PyMySQL==1.1.1
+python-dotenv==1.0.1
+drf-spectacular==0.28.0
+
+# --- added for new features ---
+pyotp==2.9.0          # TOTP codes for Two-Factor Authentication
+qrcode==8.0           # QR code generation (2FA setup, Receive page)
+Pillow==12.0.0       # image backend required by qrcode
+requests==2.32.3      # outbound calls in sync_live_rates management command
+reportlab==5.0.1      # PDF statement export
+channels==4.3.2       # WebSocket support (real-time notifications)
+
+# --- needed to actually SERVE websockets in production/dev ---
+# `manage.py runserver` only serves HTTP — install ONE of these and
+# run the app through it instead for real-time notifications to work:
+daphne==4.2.3          # e.g. `daphne cryptowallet_backend.asgi:application`
+# uvicorn[standard]    # alternative: `uvicorn cryptowallet_backend.asgi:application`
+

@@ -1,0 +1,637 @@
+@import url("base.css");
+
+/* Reset, base typography, and shared element defaults now
+   come from base.css — removed the page's own duplicate
+   (Arial-based) reset block so transactions.html renders
+   with the same Inter font and theme tokens as every other
+   page. */
+
+
+
+/* =====================================================
+   LAYOUT
+===================================================== */
+
+.transaction-page {
+
+    min-height: 100vh;
+
+    display: flex;
+
+}
+
+
+
+/* =====================================================
+   SIDEBAR
+===================================================== */
+
+.sidebar {
+
+    width: 245px;
+
+    min-height: 100vh;
+
+    background: var(--sidebar-bg);
+
+    color: white;
+
+    display: flex;
+
+    flex-direction: column;
+
+    padding: 25px 16px;
+
+    position: fixed;
+
+    left: 0;
+
+    top: 0;
+
+    bottom: 0;
+
+}
+
+
+.brand {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 11px;
+
+    font-size: 21px;
+
+    font-weight: 700;
+
+    padding: 0 10px;
+
+    margin-bottom: 45px;
+
+}
+
+
+.brand span span {
+
+    color: var(--accent-light);
+
+}
+
+
+.logo {
+
+    width: 39px;
+
+    height: 39px;
+
+    border-radius: 10px;
+
+    background: var(--accent);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 21px;
+
+}
+
+
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+nav {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+nav a,
+.sidebar-bottom a,
+.sidebar-bottom button {
+
+    display: block;
+
+    width: 100%;
+
+    padding: 12px 13px;
+
+    border-radius: 8px;
+
+    color: var(--text-faint);
+
+    background: transparent;
+
+    border: none;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    font-size: 14px;
+
+    transition: 0.2s ease;
+
+}
+
+
+nav a:hover,
+.sidebar-bottom a:hover,
+.sidebar-bottom button:hover {
+
+    background: var(--sidebar-hover);
+
+    color: white;
+
+}
+
+
+nav a.active {
+
+    background: var(--accent);
+
+    color: white;
+
+}
+
+
+.sidebar-bottom {
+
+    margin-top: auto;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.main {
+
+    margin-left: 245px;
+
+    width: calc(100% - 245px);
+
+    padding: 35px;
+
+}
+
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 30px;
+
+}
+
+
+.header h1 {
+
+    font-size: 30px;
+
+    margin-bottom: 7px;
+
+}
+
+
+.header p {
+
+    color: var(--text-muted);
+
+    font-size: 14px;
+
+}
+
+
+.avatar {
+
+    width: 44px;
+
+    height: 44px;
+
+    border-radius: 50%;
+
+    background: var(--accent);
+
+    color: white;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-weight: 700;
+
+}
+
+
+
+/* =====================================================
+   SUMMARY
+===================================================== */
+
+.transaction-summary {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 18px;
+
+    margin-bottom: 25px;
+
+}
+
+
+.summary-card {
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    padding: 22px;
+
+}
+
+
+.summary-card span {
+
+    display: block;
+
+    color: var(--text-muted);
+
+    font-size: 13px;
+
+    margin-bottom: 9px;
+
+}
+
+
+.summary-card strong {
+
+    font-size: 25px;
+
+}
+
+
+
+/* =====================================================
+   FILTER
+===================================================== */
+
+.filter-card {
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    padding: 20px;
+
+    display: flex;
+
+    gap: 20px;
+
+    margin-bottom: 25px;
+
+}
+
+
+.filter-group {
+
+    min-width: 200px;
+
+}
+
+
+.filter-group label {
+
+    display: block;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    margin-bottom: 7px;
+
+}
+
+
+.filter-group select {
+
+    width: 100%;
+
+    padding: 11px;
+
+    border: 1px solid var(--border-strong);
+
+    border-radius: 8px;
+
+    outline: none;
+
+    background: var(--surface);
+
+}
+
+
+.filter-group select:focus {
+
+    border-color: var(--accent);
+
+}
+
+
+
+/* =====================================================
+   TRANSACTION CARD
+===================================================== */
+
+.transactions-card {
+
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    padding: 25px;
+
+}
+
+
+.section-heading {
+
+    margin-bottom: 20px;
+
+}
+
+
+.section-heading h2 {
+
+    font-size: 20px;
+
+    margin-bottom: 5px;
+
+}
+
+
+.section-heading p {
+
+    color: var(--text-muted);
+
+    font-size: 13px;
+
+}
+
+
+
+/* =====================================================
+   TRANSACTION LIST
+===================================================== */
+
+.transaction-list {
+
+    display: flex;
+
+    flex-direction: column;
+
+}
+
+
+.transaction-item {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    padding: 17px 5px;
+
+    border-bottom: 1px solid var(--surface-alt);
+
+}
+
+
+.transaction-left {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+}
+
+
+.transaction-icon {
+
+    width: 42px;
+
+    height: 42px;
+
+    border-radius: 50%;
+
+    background: var(--accent-soft);
+
+    color: var(--accent);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-weight: 700;
+
+}
+
+
+.transaction-info strong {
+
+    display: block;
+
+    margin-bottom: 5px;
+
+}
+
+
+.transaction-info small {
+
+    color: var(--text-faint);
+
+}
+
+
+.transaction-right {
+
+    text-align: right;
+
+}
+
+
+.transaction-amount {
+
+    display: block;
+
+    font-weight: 700;
+
+    margin-bottom: 5px;
+
+}
+
+
+.transaction-date {
+
+    color: var(--text-faint);
+
+    font-size: 12px;
+
+}
+
+
+
+/* =====================================================
+   EMPTY
+===================================================== */
+
+.empty {
+
+    text-align: center;
+
+    padding: 55px 20px;
+
+    color: var(--text-muted);
+
+}
+
+
+.empty-icon {
+
+    font-size: 35px;
+
+    margin-bottom: 12px;
+
+}
+
+
+.empty strong {
+
+    display: block;
+
+    color: var(--text);
+
+    margin-bottom: 7px;
+
+}
+
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+
+        width: 210px;
+
+    }
+
+
+    .main {
+
+        margin-left: 210px;
+
+        width: calc(100% - 210px);
+
+    }
+
+
+    .transaction-summary {
+
+        grid-template-columns: 1fr;
+
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .sidebar {
+
+        position: static;
+
+        width: 100%;
+
+        min-height: auto;
+
+    }
+
+
+    .transaction-page {
+
+        flex-direction: column;
+
+    }
+
+
+    .main {
+
+        margin-left: 0;
+
+        width: 100%;
+
+        padding: 22px;
+
+    }
+
+
+    .filter-card {
+
+        flex-direction: column;
+
+    }
+
+
+    .filter-group {
+
+        width: 100%;
+
+    }
+
+}

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CryptoWallet - Exchange</title>
+
+    <link
+        rel="stylesheet"
+        href="../css/exchange.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="../css/pinpad.css"
+    >
+
+</head>
+
+<body>
+
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+
+
+<div class="exchange-page">
+
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="logo">
+                ₿
+            </div>
+
+            <span>
+                Crypto<span>Wallet</span>
+            </span>
+
+        </div>
+
+
+        <nav>
+
+            <a href="../index.html">
+                ◉ Dashboard
+            </a>
+
+            <a href="wallets.html">
+                ▣ Wallets
+            </a>
+
+            <a href="send.html">
+                ➤ Send
+            </a>
+
+            <a href="receive.html">
+                ⇩ Receive
+            </a>
+
+            <a
+                href="exchange.html"
+                class="active"
+                    aria-current="page"
+            >
+                ⇄ Exchange
+            </a>
+
+            <a href="transactions.html">
+                ▤ Transactions
+            </a>
+
+            <a href="split-bill.html">
+                🧾 Split Bill
+            </a>
+
+            <a href="market.html">
+                ⌁ Market
+            </a>
+
+            <a href="reports.html">
+                ▥ Reports
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+                <button
+                    type="button"
+                    class="theme-toggle"
+                    data-theme-toggle
+                    aria-pressed="false"
+                >
+                    <span class="nav-icon icon-light" aria-hidden="true">☀</span>
+                    <span class="nav-icon icon-dark" aria-hidden="true">🌙</span>
+                    <span>Toggle dark mode</span>
+                </button>
+
+
+            <a href="settings.html">
+                ⚙ Settings
+            </a>
+
+            <a href="help.html">
+                ? Help & Support
+            </a>
+
+            <button id="logout">
+                ↪ Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- MAIN -->
+
+    <main class="main" id="mainContent">
+
+
+        <!-- HEADER -->
+
+        <header class="header">
+
+            <div>
+
+                <h1>
+                    Exchange
+                </h1>
+
+                <p>
+                    Exchange currency between your wallets.
+                </p>
+
+            </div>
+
+
+            <div
+                class="avatar"
+                id="avatar"
+            >
+                U
+            </div>
+
+        </header>
+
+
+
+        <!-- EXCHANGE AREA -->
+
+        <section class="exchange-container">
+
+
+            <div class="exchange-card">
+
+
+                <div class="card-header">
+
+                    <h2>
+                        Exchange Currency
+                    </h2>
+
+                    <p>
+                        Convert funds between your wallets.
+                    </p>
+
+                </div>
+
+
+
+                <!-- FROM WALLET -->
+
+                <div class="form-group">
+
+                    <label for="fromWallet">
+                        From Wallet
+                    </label>
+
+
+                    <select id="fromWallet">
+
+                        <option value="">
+                            Select wallet
+                        </option>
+
+                    </select>
+
+
+                    <div
+                        class="balance-info"
+                        id="fromBalance"
+                    >
+                        Balance: -
+                    </div>
+
+
+                    <small
+                        class="error"
+                        id="fromWalletError"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- AMOUNT -->
+
+                <div class="form-group">
+
+                    <label for="exchangeAmount">
+                        Amount
+                    </label>
+
+
+                    <div class="amount-wrapper">
+
+                        <input
+                            type="number"
+                            id="exchangeAmount"
+                            placeholder="0.00"
+                            min="0"
+                            step="any"
+                        >
+
+
+                        <span id="fromCurrency">
+                            -
+                        </span>
+
+                    </div>
+
+
+                    <small
+                        class="error"
+                        id="amountError"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- ARROW -->
+
+                <div class="exchange-arrow">
+
+                    ↓
+
+                </div>
+
+
+
+                <!-- TO WALLET -->
+
+                <div class="form-group">
+
+                    <label for="toWallet">
+                        To Wallet
+                    </label>
+
+
+                    <select id="toWallet">
+
+                        <option value="">
+                            Select wallet
+                        </option>
+
+                    </select>
+
+
+                    <div
+                        class="balance-info"
+                        id="toBalance"
+                    >
+                        Balance: -
+                    </div>
+
+
+                    <small
+                        class="error"
+                        id="toWalletError"
+                    ></small>
+
+                </div>
+
+
+
+                <!-- CONVERSION -->
+
+                <div
+                    id="conversionPreview"
+                    class="conversion-preview hidden"
+                >
+
+                    <h3>
+                        Exchange Preview
+                    </h3>
+
+
+                    <div class="preview-row">
+
+                        <span>
+                            You exchange
+                        </span>
+
+                        <strong id="sendPreview">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="preview-row">
+
+                        <span>
+                            You receive
+                        </span>
+
+                        <strong id="receivePreview">
+                            -
+                        </strong>
+
+                    </div>
+
+
+                    <div class="rate">
+
+                        Rate:
+
+                        <strong id="ratePreview">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- BUTTON -->
+
+                <button
+                    id="exchangeButton"
+                    class="exchange-button"
+                >
+                    Exchange Currency
+                </button>
+
+
+                <div
+                    id="message"
+                    class="message hidden"
+                ></div>
+
+
+            </div>
+
+
+
+            <!-- INFORMATION -->
+
+            <div class="info-card">
+
+                <div class="info-icon">
+                    i
+                </div>
+
+
+                <div>
+
+                    <h3>
+                        About Exchange
+                    </h3>
+
+                    <p>
+                        You can exchange currency between
+                        two wallets that belong to you.
+                    </p>
+
+                    <p>
+                        The exchange rate is automatically
+                        calculated by the system.
+                    </p>
+
+                    <p>
+                        Both wallets must already exist.
+                    </p>
+
+                    <p>
+                        You must have sufficient balance
+                        in the source wallet.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+
+<script src="../js/api.js"></script>
+<script src="../js/notifications.js"></script>
+<script src="../js/theme.js"></script>
+<script src="../js/pinpad.js"></script>
+<script src="../js/success-animation.js"></script>
+<script src="../js/rates.js"></script>
+<script src="../js/exchange.js"></script>
+
+</body>
+
+</html>
