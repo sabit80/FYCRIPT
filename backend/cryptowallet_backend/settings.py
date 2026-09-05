@@ -3,6 +3,7 @@ Django settings for cryptowallet_backend project.
 """
 
 import os
+import dj_database_url
 from datetime import timedelta
 from pathlib import Path
 
@@ -105,19 +106,12 @@ WSGI_APPLICATION = 'cryptowallet_backend.wsgi.application'
 # =====================================================
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': env('DB_NAME', 'cryptowallet_db'),
-        'USER': env('DB_USER', 'cryptowallet_user'),
-        'PASSWORD': env('DB_PASSWORD', 'CryptoWallet@123'),
-        'HOST': env('DB_HOST', 'localhost'),
-        'PORT': env('DB_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
-    }
+    'default': dj_database_url.config(
+        default=os.environ.get('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
-
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
