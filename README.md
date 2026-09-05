@@ -162,3 +162,22 @@ If you serve it from a different port than the ones already in
 - Exchange rates in this build are simple static rows seeded once;
   swap `seed_data` for a scheduled job hitting a live rates API if you
   want them to move in real time.
+
+
+//RUN::
+
+cd backend
+
+.\venv\Scripts\activate
+
+daphne cryptowallet_backend.asgi:application
+
+then for frontend connection
+
+go live login.html
+
+//STOP 
+
+kill live server
+
+Ctrl +C in backend terminal
