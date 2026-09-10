@@ -1,7 +1,7 @@
-# CryptoWallet — Full-Stack (MySQL Edition)
+# CryptoWallet — Full-Stack (MySQL, Remote-DB Ready)
 
 A bKash-style multi-currency wallet app: Django REST Framework backend on
-**MySQL**, plain HTML/CSS/JS frontend. One person = one account =
+**MySQL** (online server supported), plain HTML/CSS/JS frontend. One person = one account =
 one phone number. Each account can hold **many wallets** (fiat and
 crypto), sends money to other accounts by **phone number** (always
 landing in the receiver's default receive wallet, auto-converted if
@@ -51,48 +51,48 @@ CryptoWallet-fullstack-mysql/
   writes an `AUDIT_LOG` row and (where relevant) a `NOTIFICATION`.
 
 
-## 1. MySQL setup
+## 1. Database configuration (online MySQL server)
 
-Install MySQL (8.0.16+, for `CHECK` constraint support) if you don't
-have it, then create the database and user (adjust the password to
-whatever you put in `.env`):
+You do **not** need to install MySQL locally to run this project.
+The backend connects to an online MySQL server using environment
+variables.
+
+Create backend env from the example:
 
 ```bash
-mysql -u root -p
+cd backend
+cp .env.example .env
 ```
 
-```sql
-CREATE DATABASE cryptowallet_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'cryptowallet_user'@'localhost' IDENTIFIED BY 'CryptoWallet@123';
-GRANT ALL PRIVILEGES ON cryptowallet_db.* TO 'cryptowallet_user'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
+Update `.env` with your online DB values:
+
+```env
+DB_NAME=your_database_name
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
+DB_HOST=your_database_host
+DB_PORT=3306
 ```
 
 You do **not** need to run `database/schema.sql` manually if you use
-Django's migrations below — that file is just a plain-SQL reference
-mirroring the same tables, kept in case you ever want to stand the
-schema up without Django.
+Django's migrations — that file is only a plain-SQL reference.
 
 
-## 2. Backend setup
+## 2. Backend setup and run
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-
+source venv/bin/activate              # Windows (PowerShell): .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-cp .env.example .env
-# edit .env if your DB name/user/password/host differ
+cp .env.example .env                  # Windows: copy .env.example .env
+# edit .env and set your online DB credentials
 
 python manage.py makemigrations wallet
 python manage.py migrate
-
-python manage.py seed_data       # currencies, roles, starter exchange rates
-python manage.py createsuperuser # for /admin/
-
+python manage.py seed_data            # currencies, roles, starter exchange rates
+python manage.py createsuperuser      # optional, for /admin/
 python manage.py runserver
 ```
 
@@ -119,11 +119,20 @@ From then on, update rates either in `/admin/` (Exchange Rate model)
 or by re-running `seed_data` (it's idempotent — `update_or_create`).
 
 
-## 3. Frontend setup
+## 3. Frontend setup and run
 
-The frontend is static — no build step. Serve `frontend/` with any
-static server (VS Code Live Server, `python -m http.server`, etc.) and
-open `index.html` / `login.html` / `create-account.html`.
+The frontend is static — no build step.
+
+```bash
+cd frontend
+python -m http.server 5501
+```
+
+Then open:
+
+- `http://127.0.0.1:5501/login.html`
+- `http://127.0.0.1:5501/index.html`
+- `http://127.0.0.1:5501/create-account.html`
 
 If you serve it from a different port than the ones already in
 `CORS_ALLOWED_ORIGINS` (see `.env.example`), add that origin to your
@@ -133,7 +142,30 @@ If you serve it from a different port than the ones already in
 — update `API_BASE_URL` there if your backend runs elsewhere.
 
 
-## 4. Quick tour
+## 4. Run/stop commands (quick reference)
+
+### Start backend
+
+```bash
+cd backend
+source venv/bin/activate              # Windows (PowerShell): .\venv\Scripts\Activate.ps1
+python manage.py runserver
+```
+
+### Start frontend
+
+```bash
+cd frontend
+python -m http.server 5501
+```
+
+### Stop services
+
+- Backend: `Ctrl + C`
+- Frontend: `Ctrl + C`
+
+
+## 5. Quick tour
 
 1. **Create Account** — pick a preferred receive currency; this opens
    your default wallet automatically.
@@ -150,7 +182,7 @@ If you serve it from a different port than the ones already in
    transfer `TRANSACTION` table.
 
 
-## Notes / things you may want to change
+## 6. Notes / things you may want to change
 
 - Default seeded currencies: USD, BDT, EUR, GBP (fiat), BTC, ETH, USDT
   (crypto). Add more in `/admin/` → Currency, then re-run
@@ -162,22 +194,3 @@ If you serve it from a different port than the ones already in
 - Exchange rates in this build are simple static rows seeded once;
   swap `seed_data` for a scheduled job hitting a live rates API if you
   want them to move in real time.
-
-
-//RUN::
-
-cd backend
-
-.\venv\Scripts\activate
-
-daphne cryptowallet_backend.asgi:application
-
-then for frontend connection
-
-go live login.html
-
-//STOP 
-
-kill live server
-
-Ctrl +C in backend terminal
