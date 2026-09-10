@@ -1,13 +1,13 @@
 """
 Django settings for cryptowallet_backend project.
 """
-
+ 
 import os
 from datetime import timedelta
 from pathlib import Path
-
+ 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+ 
 # Load a .env file if python-dotenv is installed (optional convenience —
 # the app also works fine with real environment variables / a process
 # manager / docker-compose env_file).
@@ -16,35 +16,35 @@ try:
     load_dotenv(BASE_DIR / '.env')
 except ImportError:
     pass
-
-
+ 
+ 
 def env(key, default=None):
     return os.environ.get(key, default)
-
-
+ 
+ 
 def env_bool(key, default=False):
     value = os.environ.get(key)
     if value is None:
         return default
     return value.strip().lower() in ('1', 'true', 'yes', 'on')
-
-
+ 
+ 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env(
     'DJANGO_SECRET_KEY',
     'django-insecure-lopq!!bqvmkcx@vq=)ve8kuqq5%(z9(t=-%=%tk-h&p6#ckaf2',
 )
-
+ 
 DEBUG = env_bool('DJANGO_DEBUG', True)
-
+ 
 ALLOWED_HOSTS = [
     h.strip() for h in env('DJANGO_ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
     if h.strip()
 ]
-
-
+ 
+ 
 # Application definition
-
+ 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -52,17 +52,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+ 
     # third-party
     'channels',
     'rest_framework',
     'corsheaders',
     'drf_spectacular',
-
+ 
     # local
     'wallet',
 ]
-
+ 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -73,12 +73,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
+ 
 # Use our own User model (email + phone instead of username)
 AUTH_USER_MODEL = 'wallet.User'
-
+ 
 ROOT_URLCONF = 'cryptowallet_backend.urls'
-
+ 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -93,17 +93,17 @@ TEMPLATES = [
         },
     },
 ]
-
+ 
 WSGI_APPLICATION = 'cryptowallet_backend.wsgi.application'
-
-
+ 
+ 
 # =====================================================
 # DATABASE — MySQL
 #
 # Configure via environment variables (see backend/.env.example).
 # Defaults match a local `CREATE DATABASE cryptowallet_db` setup.
 # =====================================================
-
+ 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -117,8 +117,8 @@ DATABASES = {
         },
     }
 }
-
-
+ 
+ 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -126,25 +126,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
-
-
+ 
+ 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
-
+ 
+ 
 # Static files
 STATIC_URL = 'static/'
-
+ 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
+ 
+ 
 # =====================================================
 # DJANGO REST FRAMEWORK
 # =====================================================
-
+ 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -164,7 +164,7 @@ REST_FRAMEWORK = {
         'send': '30/min',
     },
 }
-
+ 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'CryptoWallet API',
     'DESCRIPTION': (
@@ -174,13 +174,13 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
-
+ 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=6),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
-
-
+ 
+ 
 # =====================================================
 # CORS
 #
@@ -190,7 +190,7 @@ SIMPLE_JWT = {
 # the frontend from, or set CORS_ALLOW_ALL_ORIGINS=true in .env
 # while developing.
 # =====================================================
-
+ 
 # =====================================================
 # FRONTEND ORIGIN
 #
@@ -198,10 +198,10 @@ SIMPLE_JWT = {
 # instead of a hardcoded host:port. Set this to wherever you actually
 # serve frontend/ from.
 # =====================================================
-
+ 
 FRONTEND_URL = env('FRONTEND_URL', 'http://127.0.0.1:5500')
-
-
+ 
+ 
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in env(
         'CORS_ALLOWED_ORIGINS',
@@ -210,10 +210,10 @@ CORS_ALLOWED_ORIGINS = [
         'http://127.0.0.1:5503,http://localhost:5503',
     ).split(',') if o.strip()
 ]
-
+ 
 CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', False)
-
-
+ 
+ 
 # =====================================================
 # CACHE
 #
@@ -225,14 +225,14 @@ CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', False)
 # for a shared backend (e.g. Redis) so one worker's cache.set() is
 # visible to whichever worker handles the follow-up request.
 # =====================================================
-
+ 
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
-
-
+ 
+ 
 # =====================================================
 # CHANNELS / WEBSOCKETS  (real-time notifications)
 #
@@ -255,15 +255,21 @@ CACHES = {
 # `daphne cryptowallet_backend.asgi:application`, or `uvicorn
 # cryptowallet_backend.asgi:application`.
 # =====================================================
-
+ 
 ASGI_APPLICATION = 'cryptowallet_backend.asgi.application'
-
+ 
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
     }
 }
-
-
+ 
+ 
 # Email
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true') == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)

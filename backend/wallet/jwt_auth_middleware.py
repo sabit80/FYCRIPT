@@ -27,7 +27,7 @@ def get_user_from_token(token):
 
     try:
         validated = AccessToken(token)
-        row = rawsql.get_row(User, 'id', validated["user_id"])
+        row = rawsql.get_user_by_id(validated["user_id"])
         if row is None:
             return AnonymousUser()
         return rawsql.hydrate(User, row)

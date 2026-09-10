@@ -102,19 +102,14 @@ def hydrate_user(row):
 def create_audit_log(user, action, remarks='', ip_address=None):
     """Raw-SQL replacement for `AuditLog.objects.create(...)`."""
     from django.utils import timezone
-    rawsql.insert(
-        AuditLog,
-        user_id=(user.id if user else None),
-        action=action,
-        remarks=remarks,
-        ip_address=ip_address,
-        timestamp=timezone.now(),
+    rawsql.create_audit_log(
+        user.id if user else None, action, remarks, ip_address, timezone.now()
     )
 
 
 def _push_notification_over_websocket(notification_id, user_id, ntype, message, read_status, timestamp):
     """
-    The ORM used to fire this from a `post_save` signal on Notification
+    The  used to fire this from a `post_save` signal on Notification
     (see signals.py) — that signal only runs for `.objects.create()` /
     instance `.save()`, so a raw INSERT no longer triggers it. Every raw
     notification insert below calls this explicitly instead, keeping the
@@ -148,16 +143,9 @@ def create_notification(user, type='INFO', message=''):
     signal did (see _push_notification_over_websocket above)."""
     from django.utils import timezone
     now = timezone.now()
-    new_id = rawsql.insert(
-        Notification,
-        user_id=user.id,
-        message=message,
-        type=type,
-        read_status=False,
-        timestamp=now,
-    )
+    new_id = rawsql.create_notification(user.id, message, type, now)
     _push_notification_over_websocket(new_id, user.id, type, message, False, now)
-    return rawsql.hydrate(Notification, rawsql.get_row(Notification, 'id', new_id))
+    return rawsql.hydrate(Notification, rawsql.get_notification(new_id))
 
 
 def save_user_fields(user, **fields):
@@ -176,7 +164,7 @@ def save_user_fields(user, **fields):
         # this (de)serialization itself, so a raw UPDATE has to do it too.
         db_fields['recovery_codes_hash'] = json.dumps(db_fields['recovery_codes_hash'])
 
-    rawsql.update_by_pk(User, 'id', user.id, **db_fields)
+    rawsql.update_user(user.id, db_fields)
     for field, value in fields.items():
         setattr(user, field, value)
 
@@ -190,15 +178,38 @@ def create_transaction(**fields):
     fields.setdefault('fee', Decimal('0'))
     fields.setdefault('category', '')
     fields.setdefault('date', timezone.now())
-    rawsql.insert(Transaction, transaction_id=txn_id, **fields)
-    return rawsql.hydrate(Transaction, rawsql.get_row(Transaction, 'transaction_id', txn_id))
+    fields['transaction_id'] = txn_id
+    rawsql.create_transaction(fields)
+    return rawsql.hydrate(Transaction, rawsql.get_transaction(txn_id))
 
 
 def save_wallet_fields(wallet, **fields):
     """Raw-SQL replacement for `wallet.save()` / `wallet.save(update_fields=[...])`."""
-    rawsql.update_by_pk(Wallet, 'wallet_id', wallet.wallet_id, **fields)
+    rawsql.update_wallet(wallet.wallet_id, fields)
     for field, value in fields.items():
         setattr(wallet, field, value)
+
+
+def lock_wallets(*wallets):
+    """Row-lock the given Wallet instance(s) with SELECT ... FOR UPDATE and
+    refresh each one's in-memory `balance` from the freshly locked row.
+
+    MUST be called from inside a `db_transaction.atomic()` block, and
+    MUST be called (for every wallet whose balance is about to be read for
+    a sufficient-balance check and then debited/credited) before that
+    check runs. Without this, two concurrent requests touching the same
+    wallet can both read the same stale balance, both pass the balance
+    check, and both write -- silently corrupting the balance (a
+    double-spend / lost-update race condition). See
+    rawsql.lock_wallets_for_update() for details.
+    """
+    locked_rows = rawsql.lock_wallets_for_update([w.wallet_id for w in wallets if w is not None])
+    for wallet in wallets:
+        if wallet is None:
+            continue
+        row = locked_rows.get(wallet.wallet_id)
+        if row is not None:
+            wallet.balance = row['balance']
 
 
 def get_wallet_or_404(wallet_id, user=None):
@@ -206,12 +217,12 @@ def get_wallet_or_404(wallet_id, user=None):
     (or without the user filter), hydrated with its currency attached so
     WalletSerializer / f-strings using wallet.currency_id keep working."""
     if user is not None:
-        row = rawsql.find_one(Wallet, "wallet_id = %s AND user_id = %s", [wallet_id, user.id])
+        row = rawsql.get_wallet(wallet_id, user.id)
     else:
-        row = rawsql.get_row(Wallet, 'wallet_id', wallet_id)
+        row = rawsql.get_wallet(wallet_id)
     if row is None:
         raise Wallet.DoesNotExist
-    currency = rawsql.hydrate(Currency, rawsql.get_row(Currency, 'currency_name', row['currency_id']))
+    currency = rawsql.hydrate(Currency, rawsql.get_currency(row['currency_id']))
     return rawsql.hydrate(Wallet, row, currency=currency, user=(user if user is not None else None))
 
 
@@ -250,31 +261,19 @@ def get_rate(from_currency, to_currency):
     if from_currency == to_currency:
         return Decimal("1")
 
-    direct = rawsql.find_one(
-        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s",
-        [from_currency, to_currency],
-    )
+    direct = rawsql.get_exchange_rate(from_currency, to_currency)
 
     if direct:
         return direct['rate']
 
-    inverse = rawsql.find_one(
-        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s",
-        [to_currency, from_currency],
-    )
+    inverse = rawsql.get_exchange_rate(to_currency, from_currency)
 
     if inverse and inverse['rate']:
         return Decimal("1") / inverse['rate']
 
     # Bridge via USD: from -> USD -> to
-    from_to_usd = rawsql.find_one(
-        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s",
-        [from_currency, 'USD'],
-    )
-    usd_to_to = rawsql.find_one(
-        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s",
-        ['USD', to_currency],
-    )
+    from_to_usd = rawsql.get_exchange_rate(from_currency, 'USD')
+    usd_to_to = rawsql.get_exchange_rate('USD', to_currency)
 
     if from_to_usd and usd_to_to:
         return from_to_usd['rate'] * usd_to_to['rate']
@@ -323,18 +322,8 @@ def check_send_limit(user, sender_wallet, send_amount):
     # sender_wallet__user=user, transaction_type='SEND', date__gte=X, with
     # the sending wallet's currency for USD-equivalent conversion below —
     # a straight join against wallet_wallet instead of select_related.
-    sent_today = rawsql.fetchall(
-        "SELECT t.amount, w.currency_id FROM wallet_transaction t "
-        "JOIN wallet_wallet w ON w.wallet_id = t.sender_wallet_id "
-        "WHERE w.user_id = %s AND t.transaction_type = 'SEND' AND t.date >= %s",
-        [user.id, day_start],
-    )
-    sent_this_month = rawsql.fetchall(
-        "SELECT t.amount, w.currency_id FROM wallet_transaction t "
-        "JOIN wallet_wallet w ON w.wallet_id = t.sender_wallet_id "
-        "WHERE w.user_id = %s AND t.transaction_type = 'SEND' AND t.date >= %s",
-        [user.id, month_start],
-    )
+    sent_today = rawsql.get_send_totals(user.id, day_start)
+    sent_this_month = rawsql.get_send_totals(user.id, month_start)
 
     daily_total = sum(
         (usd_equivalent(t['amount'], t['currency_id']) for t in sent_today),
@@ -384,12 +373,7 @@ def check_fraud_velocity(user, request):
     window_start = timezone.now() - timezone.timedelta(
         minutes=FRAUD_VELOCITY_WINDOW_MINUTES
     )
-    recent_count = rawsql.count_where(
-        Transaction,
-        "sender_wallet_id IN (SELECT wallet_id FROM wallet_wallet WHERE user_id = %s) "
-        "AND transaction_type IN ('SEND', 'SHIFT') AND date >= %s",
-        [user.id, window_start],
-    )
+    recent_count = rawsql.count_recent_sends(user.id, window_start)
 
     if recent_count >= FRAUD_VELOCITY_COUNT:
         flagged_reason = (
@@ -424,12 +408,12 @@ class RatesView(APIView):
 
     def get(self, request):
 
-        rows = rawsql.find_all(ExchangeRate)
+        rows = rawsql.get_exchange_rates()
         rates = [
             rawsql.hydrate(
                 ExchangeRate, row,
-                from_curr=rawsql.hydrate(Currency, rawsql.get_row(Currency, 'currency_name', row['from_curr_id'])),
-                to_curr=rawsql.hydrate(Currency, rawsql.get_row(Currency, 'currency_name', row['to_curr_id'])),
+                from_curr=rawsql.hydrate(Currency, rawsql.get_currency(row['from_curr_id'])),
+                to_curr=rawsql.hydrate(Currency, rawsql.get_currency(row['to_curr_id'])),
             )
             for row in rows
         ]
@@ -442,7 +426,7 @@ class CurrencyListView(generics.ListAPIView):
     serializer_class = CurrencySerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(Currency, order_by='type, currency_name')
+        rows = rawsql.get_currencies()
         return rawsql.hydrate_all(Currency, rows)
 
 
@@ -467,22 +451,17 @@ def create_wallet_for_user(user, currency_name, is_default_receive=False):
     if is_default_receive:
         rawsql.unset_other_default_wallets(user.id)
 
-    currency_row = rawsql.get_row(Currency, 'currency_name', currency_name)
+    currency_row = rawsql.get_currency(currency_name)
     currency = rawsql.hydrate(Currency, currency_row)
 
-    rawsql.insert(
-        Wallet,
-        wallet_id=wallet_id,
-        user_id=user.id,
-        currency_id=currency_name,
-        balance=Decimal('0'),
-        is_default_receive=is_default_receive,
-        wallet_status='ACTIVE',
-        name=f"{currency_name} Wallet",
-        created_at=timezone.now(),
-    )
+    rawsql.create_wallet({
+        'wallet_id': wallet_id, 'user_id': user.id, 'currency_id': currency_name,
+        'balance': Decimal('0'), 'is_default_receive': is_default_receive,
+        'wallet_status': 'ACTIVE', 'name': f"{currency_name} Wallet",
+        'created_at': timezone.now(),
+    })
     wallet = rawsql.hydrate(
-        Wallet, rawsql.get_row(Wallet, 'wallet_id', wallet_id),
+        Wallet, rawsql.get_wallet(wallet_id),
         currency=currency, user=user,
     )
 
@@ -490,12 +469,9 @@ def create_wallet_for_user(user, currency_name, is_default_receive=False):
         blockchain_map = {
             'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tron (TRC20)',
         }
-        rawsql.insert(
-            CryptoAddress,
-            address_id=f"ADR-{uuid.uuid4().hex[:10].upper()}",
-            wallet_id=wallet_id,
-            blockchain=blockchain_map.get(currency_name, currency_name),
-            public_address=uuid.uuid4().hex,
+        rawsql.create_crypto_address(
+            f"ADR-{uuid.uuid4().hex[:10].upper()}", wallet_id,
+            blockchain_map.get(currency_name, currency_name), uuid.uuid4().hex
         )
 
     return wallet
@@ -571,19 +547,14 @@ class RegisterView(generics.CreateAPIView):
                 user, preferred_currency, is_default_receive=True
             )
 
-            role_row = rawsql.find_one(Role, "role_name = %s", ['USER'])
+            role_row = rawsql.get_role_by_name('USER')
             if role_row is None:
-                role_id = rawsql.insert(Role, role_name='USER')
+                role_id = rawsql.create_role('USER')
             else:
                 role_id = role_row['id']
 
-            if not rawsql.exists_where(
-                UserRole, "user_id = %s AND role_id = %s", [user.id, role_id]
-            ):
-                rawsql.insert(
-                    UserRole, user_id=user.id, role_id=role_id,
-                    assigned_at=timezone.now(),
-                )
+            if not rawsql.user_role_exists(user.id, role_id):
+                rawsql.create_user_role(user.id, role_id, timezone.now())
 
             create_audit_log(user, 'REGISTER', remarks=user.email, ip_address=client_ip(request))
             create_notification(
@@ -640,9 +611,8 @@ class LoginView(APIView):
                 "login_token": login_token,
             })
 
-        rawsql.insert(
-            LoginSession, user_id=user.id, ip_address=client_ip(request),
-            device_info=client_device(request), login_time=timezone.now(),
+        rawsql.create_login_session(
+            user.id, client_ip(request), client_device(request), timezone.now()
         )
         create_audit_log(user, 'LOGIN', remarks=user.email, ip_address=client_ip(request))
 
@@ -673,7 +643,7 @@ class TwoFactorLoginVerifyView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = hydrate_user(rawsql.get_row(User, 'id', user_id))
+        user = hydrate_user(rawsql.get_user_by_id(user_id))
 
         if not _verify_totp_or_recovery(user, data['code']):
             return Response(
@@ -683,9 +653,8 @@ class TwoFactorLoginVerifyView(APIView):
 
         cache.delete(f"2fa-login:{data['login_token']}")
 
-        rawsql.insert(
-            LoginSession, user_id=user.id, ip_address=client_ip(request),
-            device_info=client_device(request), login_time=timezone.now(),
+        rawsql.create_login_session(
+            user.id, client_ip(request), client_device(request), timezone.now()
         )
         create_audit_log(user, 'LOGIN_2FA', remarks=user.email, ip_address=client_ip(request))
 
@@ -895,7 +864,7 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email']
 
-        user_row = rawsql.find_one(User, "LOWER(email) = LOWER(%s)", [email])
+        user_row = rawsql.get_user_by_email(email)
         user = hydrate_user(user_row)
 
         # Always return the same response whether or not the email
@@ -941,7 +910,7 @@ class PasswordResetConfirmView(APIView):
 
         try:
             uid = urlsafe_base64_decode(data['uid']).decode()
-            user_row = rawsql.get_row(User, 'id', uid)
+            user_row = rawsql.get_user_by_id(uid)
             if user_row is None:
                 raise User.DoesNotExist
             user = hydrate_user(user_row)
@@ -1017,18 +986,17 @@ class BankAccountListCreateView(generics.ListCreateAPIView):
     serializer_class = BankAccountSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(BankAccount, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_bank_accounts(self.request.user.id)
         return rawsql.hydrate_all(BankAccount, rows, user=self.request.user)
 
     def perform_create(self, serializer):
 
         fields = dict(serializer.validated_data)
-        new_id = rawsql.insert(
-            BankAccount, user_id=self.request.user.id,
-            created_at=timezone.now(), **fields,
-        )
+        new_id = fields['user_id'] = self.request.user.id
+        fields['created_at'] = timezone.now()
+        new_id = rawsql.create_bank_account(self.request.user.id, fields)
         bank_account = rawsql.hydrate(
-            BankAccount, rawsql.get_row(BankAccount, 'id', new_id),
+            BankAccount, rawsql.get_bank_account(new_id),
             user=self.request.user,
         )
         serializer.instance = bank_account
@@ -1044,11 +1012,11 @@ class BankAccountDeleteView(generics.DestroyAPIView):
     serializer_class = BankAccountSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(BankAccount, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_bank_accounts(self.request.user.id)
         return rawsql.hydrate_all(BankAccount, rows, user=self.request.user)
 
     def perform_destroy(self, instance):
-        rawsql.delete_by_pk(BankAccount, 'id', instance.id)
+        rawsql.delete_bank_account(instance.id)
 
 
 class BankAccountDepositView(APIView):
@@ -1057,9 +1025,7 @@ class BankAccountDepositView(APIView):
 
     def post(self, request, pk):
 
-        bank_account_row = rawsql.find_one(
-            BankAccount, "id = %s AND user_id = %s", [pk, request.user.id]
-        )
+        bank_account_row = rawsql.get_bank_account(pk, request.user.id)
         if bank_account_row is None:
             return Response(
                 {"detail": "Bank account not found."},
@@ -1087,6 +1053,7 @@ class BankAccountDepositView(APIView):
 
         with db_transaction.atomic():
 
+            lock_wallets(wallet)
             save_wallet_fields(wallet, balance=wallet.balance + amount)
 
             txn = create_transaction(
@@ -1124,9 +1091,7 @@ class BankAccountWithdrawView(APIView):
 
     def post(self, request, pk):
 
-        bank_account_row = rawsql.find_one(
-            BankAccount, "id = %s AND user_id = %s", [pk, request.user.id]
-        )
+        bank_account_row = rawsql.get_bank_account(pk, request.user.id)
         if bank_account_row is None:
             return Response(
                 {"detail": "Bank account not found."},
@@ -1159,6 +1124,14 @@ class BankAccountWithdrawView(APIView):
             )
 
         with db_transaction.atomic():
+
+            lock_wallets(wallet)
+
+            if amount > wallet.balance:
+                return Response(
+                    {"detail": "Insufficient balance."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             save_wallet_fields(wallet, balance=wallet.balance - amount)
 
@@ -1199,7 +1172,7 @@ class KYCView(APIView):
 
     def get(self, request):
 
-        kyc_row = rawsql.find_one(KYC, "user_id = %s", [request.user.id])
+        kyc_row = rawsql.get_kyc_by_user(request.user.id)
 
         if not kyc_row:
             return Response({"detail": "No KYC submitted yet."},
@@ -1213,21 +1186,19 @@ class KYCView(APIView):
         serializer = KYCSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        existing_row = rawsql.find_one(KYC, "user_id = %s", [request.user.id])
+        existing_row = rawsql.get_kyc_by_user(request.user.id)
         fields = {**serializer.validated_data, 'verification_status': 'PENDING'}
 
         if existing_row is None:
-            new_id = rawsql.insert(
-                KYC, user_id=request.user.id, submission_date=timezone.now(),
-                reviewed_by_id=None, reviewed_at=None, admin_remarks=None, **fields,
-            )
+            fields.update({'user_id': request.user.id, 'submission_date': timezone.now(), 'reviewed_by_id': None, 'reviewed_at': None, 'admin_remarks': None})
+            new_id = rawsql.create_kyc(fields)
             created = True
         else:
-            rawsql.update_by_pk(KYC, 'id', existing_row['id'], **fields)
+            rawsql.update_kyc(existing_row['id'], fields)
             new_id = existing_row['id']
             created = False
 
-        kyc = rawsql.hydrate(KYC, rawsql.get_row(KYC, 'id', new_id), user=request.user)
+        kyc = rawsql.hydrate(KYC, rawsql.get_kyc_by_id(new_id), user=request.user)
 
         create_audit_log(
             request.user, 'KYC_SUBMIT',
@@ -1255,10 +1226,10 @@ class WalletListCreateView(generics.ListCreateAPIView):
     lookup_field = 'wallet_id'
 
     def get_queryset(self):
-        rows = rawsql.find_all(Wallet, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_wallets_for_user(self.request.user.id)
         wallets = []
         for row in rows:
-            currency = rawsql.hydrate(Currency, rawsql.get_row(Currency, 'currency_name', row['currency_id']))
+            currency = rawsql.hydrate(Currency, rawsql.get_currency(row['currency_id']))
             wallets.append(rawsql.hydrate(Wallet, row, currency=currency, user=self.request.user))
         return wallets
 
@@ -1289,7 +1260,7 @@ class WalletDeleteView(generics.DestroyAPIView):
     lookup_field = 'wallet_id'
 
     def get_queryset(self):
-        rows = rawsql.find_all(Wallet, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_wallets_for_user(self.request.user.id)
         return rawsql.hydrate_all(Wallet, rows, user=self.request.user)
 
     def perform_destroy(self, instance):
@@ -1308,7 +1279,7 @@ class WalletDeleteView(generics.DestroyAPIView):
             self.request.user, 'WALLET_DELETE',
             remarks=instance.wallet_id, ip_address=client_ip(self.request),
         )
-        rawsql.delete_by_pk(Wallet, 'wallet_id', instance.wallet_id)
+        rawsql.delete_wallet(instance.wallet_id)
 
 
 class WalletFreezeToggleView(APIView):
@@ -1409,7 +1380,7 @@ class AccountLookupView(APIView):
 
     def get(self, request, phone):
 
-        recipient_row = rawsql.find_one(User, "phone = %s", [phone])
+        recipient_row = rawsql.get_user_by_phone(phone)
         if recipient_row is None:
             return Response(
                 {"detail": "No account found for this number."},
@@ -1423,9 +1394,7 @@ class AccountLookupView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        default_wallet_row = rawsql.find_one(
-            Wallet, "user_id = %s AND is_default_receive = 1", [recipient.id]
-        )
+        default_wallet_row = rawsql.get_default_receive_wallet(recipient.id)
         default_wallet = rawsql.hydrate(Wallet, default_wallet_row) if default_wallet_row else None
 
         masked_name = (
@@ -1485,6 +1454,7 @@ class FundWalletView(APIView):
 
         with db_transaction.atomic():
 
+            lock_wallets(wallet)
             save_wallet_fields(wallet, balance=wallet.balance + amount)
 
             create_transaction(
@@ -1556,7 +1526,7 @@ class SendView(APIView):
         # ---------------------------------------------
         if data['recipient_phone']:
 
-            recipient_row = rawsql.find_one(User, "phone = %s", [data['recipient_phone']])
+            recipient_row = rawsql.get_user_by_phone(data['recipient_phone'])
             if recipient_row is None:
                 return Response(
                     {"detail": "No account found for this number."},
@@ -1571,9 +1541,7 @@ class SendView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            receiver_row = rawsql.find_one(
-                Wallet, "user_id = %s AND is_default_receive = 1", [recipient_user.id]
-            )
+            receiver_row = rawsql.get_default_receive_wallet(recipient_user.id)
 
             if not receiver_row:
                 return Response(
@@ -1581,7 +1549,7 @@ class SendView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             receiver_currency = rawsql.hydrate(
-                Currency, rawsql.get_row(Currency, 'currency_name', receiver_row['currency_id'])
+                Currency, rawsql.get_currency(receiver_row['currency_id'])
             )
             receiver_wallet = rawsql.hydrate(
                 Wallet, receiver_row, currency=receiver_currency, user=recipient_user,
@@ -1627,6 +1595,15 @@ class SendView(APIView):
             )
 
         with db_transaction.atomic():
+
+            lock_wallets(sender_wallet, receiver_wallet)
+
+            if send_amount + fee > sender_wallet.balance:
+                return Response(
+                    {"detail": f"Insufficient balance to cover amount plus the "
+                               f"{SEND_FEE_PERCENT}% fee ({fee} {sender_wallet.currency_id})."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             save_wallet_fields(sender_wallet, balance=sender_wallet.balance - (send_amount + fee))
             save_wallet_fields(receiver_wallet, balance=receiver_wallet.balance + receive_amount)
@@ -1676,11 +1653,7 @@ class SendView(APIView):
             # ---------------------------------------------
             if txn_type == 'SEND':
 
-                goal_rows = rawsql.find_all(
-                    SavingsGoal,
-                    "user_id = %s AND is_active = 1 AND auto_save_percent > 0",
-                    [sender_wallet.user.id],
-                )
+                goal_rows = rawsql.get_active_auto_save_goals(sender_wallet.user.id)
 
                 for goal_row in goal_rows:
 
@@ -1688,6 +1661,8 @@ class SendView(APIView):
 
                     if savings_wallet.currency_id != sender_wallet.currency_id:
                         continue  # only auto-save same-currency wallets — no surprise conversions
+
+                    lock_wallets(savings_wallet)  # sender_wallet is already locked, above
 
                     save_amount = (
                         send_amount * goal_row['auto_save_percent'] / Decimal("100")
@@ -1808,38 +1783,8 @@ class ExchangeView(APIView):
 # =====================================================
 
 def fetch_transactions_for_user(user, currency=None):
-    """
-    Raw-SQL replacement for the ORM's
-    `Transaction.objects.filter(Q(sender_wallet__user=user) |
-    Q(receiver_wallet__user=user)).select_related(...)`. Returns
-    hydrated Transaction instances with `.sender_wallet` /
-    `.receiver_wallet` attached (each carrying just the handful of
-    fields TransactionSerializer actually reads: wallet_id, name,
-    currency_id, user_id, and `.user.phone`) so no further queries
-    fire during serialization.
-    """
-    sql = (
-        "SELECT t.*, "
-        "sw.wallet_id AS sw_wallet_id, sw.name AS sw_name, "
-        "sw.currency_id AS sw_currency_id, sw.user_id AS sw_user_id, su.phone AS su_phone, "
-        "rw.wallet_id AS rw_wallet_id, rw.name AS rw_name, "
-        "rw.currency_id AS rw_currency_id, rw.user_id AS rw_user_id, ru.phone AS ru_phone "
-        "FROM wallet_transaction t "
-        "LEFT JOIN wallet_wallet sw ON sw.wallet_id = t.sender_wallet_id "
-        "LEFT JOIN wallet_user su ON su.id = sw.user_id "
-        "LEFT JOIN wallet_wallet rw ON rw.wallet_id = t.receiver_wallet_id "
-        "LEFT JOIN wallet_user ru ON ru.id = rw.user_id "
-        "WHERE (sw.user_id = %s OR rw.user_id = %s)"
-    )
-    params = [user.id, user.id]
-
-    if currency:
-        sql += " AND (sw.currency_id = %s OR rw.currency_id = %s)"
-        params += [currency, currency]
-
-    sql += " ORDER BY t.date DESC"
-
-    rows = rawsql.fetchall(sql, params)
+    """Load the user's transactions with sender/receiver wallets attached."""
+    rows = rawsql.get_user_transactions(user.id, currency)
 
     transactions = []
     for row in rows:
@@ -1948,7 +1893,7 @@ class DashboardSummaryView(APIView):
 
     def get(self, request):
 
-        wallet_rows = rawsql.find_all(Wallet, "user_id = %s", [request.user.id])
+        wallet_rows = rawsql.get_wallets_for_user(request.user.id)
         wallets = rawsql.hydrate_all(Wallet, wallet_rows, user=request.user)
         transaction_count = len(fetch_transactions_for_user(request.user))
 
@@ -1978,7 +1923,7 @@ class LoginSessionListView(generics.ListAPIView):
     serializer_class = LoginSessionSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(LoginSession, "user_id = %s", [self.request.user.id], order_by='login_time DESC')
+        rows = rawsql.get_login_sessions(self.request.user.id)
         return rawsql.hydrate_all(LoginSession, rows, user=self.request.user)
 
 
@@ -1987,7 +1932,7 @@ class NotificationListView(generics.ListAPIView):
     serializer_class = NotificationSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(Notification, "user_id = %s", [self.request.user.id], order_by='timestamp DESC')
+        rows = rawsql.get_notifications(self.request.user.id)
         return rawsql.hydrate_all(Notification, rows, user=self.request.user)
 
 
@@ -1995,14 +1940,14 @@ class NotificationMarkReadView(APIView):
 
     def post(self, request, pk):
 
-        row = rawsql.find_one(Notification, "id = %s AND user_id = %s", [pk, request.user.id])
+        row = rawsql.get_notification_for_user(pk, request.user.id)
         if row is None:
             return Response(
                 {"detail": "Notification not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        rawsql.update_by_pk(Notification, 'id', row['id'], read_status=True)
+        rawsql.mark_notification_read(row['id'], request.user.id)
         row['read_status'] = True
         notification = rawsql.hydrate(Notification, row, user=request.user)
 
@@ -2032,10 +1977,10 @@ class AdminKYCListView(generics.ListAPIView):
         if status_filter != 'ALL':
             where_sql, params = "verification_status = %s", [status_filter]
 
-        rows = rawsql.find_all(KYC, where_sql, params, order_by='submission_date')
+        rows = rawsql.get_kyc_list_by_status(status_filter)
         results = []
         for row in rows:
-            user = hydrate_user(rawsql.get_row(User, 'id', row['user_id']))
+            user = hydrate_user(rawsql.get_user_by_id(row['user_id']))
             results.append(rawsql.hydrate(KYC, row, user=user))
         return results
 
@@ -2046,13 +1991,13 @@ class AdminKYCApproveView(APIView):
 
     def post(self, request, pk):
 
-        row = rawsql.get_row(KYC, 'id', pk)
+        row = rawsql.get_kyc_by_id(pk)
         if row is None:
             return Response(
                 {"detail": "KYC submission not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        applicant = hydrate_user(rawsql.get_row(User, 'id', row['user_id']))
+        applicant = hydrate_user(rawsql.get_user_by_id(row['user_id']))
 
         serializer = AdminKYCActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -2061,11 +2006,10 @@ class AdminKYCApproveView(APIView):
 
             reviewed_at = timezone.now()
             admin_remarks = serializer.validated_data.get('remarks', '')
-            rawsql.update_by_pk(
-                KYC, 'id', row['id'],
-                verification_status='APPROVED', reviewed_by_id=request.user.id,
-                reviewed_at=reviewed_at, admin_remarks=admin_remarks,
-            )
+            rawsql.update_kyc(row['id'], {
+                'verification_status': 'APPROVED', 'reviewed_by_id': request.user.id,
+                'reviewed_at': reviewed_at, 'admin_remarks': admin_remarks,
+            })
             row.update(
                 verification_status='APPROVED', reviewed_by_id=request.user.id,
                 reviewed_at=reviewed_at, admin_remarks=admin_remarks,
@@ -2090,13 +2034,13 @@ class AdminKYCRejectView(APIView):
 
     def post(self, request, pk):
 
-        row = rawsql.get_row(KYC, 'id', pk)
+        row = rawsql.get_kyc_by_id(pk)
         if row is None:
             return Response(
                 {"detail": "KYC submission not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        applicant = hydrate_user(rawsql.get_row(User, 'id', row['user_id']))
+        applicant = hydrate_user(rawsql.get_user_by_id(row['user_id']))
 
         serializer = AdminKYCActionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -2105,11 +2049,10 @@ class AdminKYCRejectView(APIView):
 
             reviewed_at = timezone.now()
             admin_remarks = serializer.validated_data.get('remarks', '')
-            rawsql.update_by_pk(
-                KYC, 'id', row['id'],
-                verification_status='REJECTED', reviewed_by_id=request.user.id,
-                reviewed_at=reviewed_at, admin_remarks=admin_remarks,
-            )
+            rawsql.update_kyc(row['id'], {
+                'verification_status': 'REJECTED', 'reviewed_by_id': request.user.id,
+                'reviewed_at': reviewed_at, 'admin_remarks': admin_remarks,
+            })
             row.update(
                 verification_status='REJECTED', reviewed_by_id=request.user.id,
                 reviewed_at=reviewed_at, admin_remarks=admin_remarks,
@@ -2143,28 +2086,17 @@ class AdminAnalyticsSummaryView(APIView):
 
     def get(self, request):
 
-        total_users = rawsql.count_where(User)
-        active_users = rawsql.count_where(User, "status = %s", ['ACTIVE'])
-        flagged_users = rawsql.count_where(User, "is_flagged = 1")
-        pending_kyc = rawsql.count_where(KYC, "verification_status = %s", ['PENDING'])
-        total_transactions = rawsql.count_where(Transaction)
-        total_wallets = rawsql.count_where(Wallet)
+        total_users = rawsql.count_users()
+        active_users = rawsql.count_active_users()
+        flagged_users = rawsql.count_flagged_users()
+        pending_kyc = rawsql.count_pending_kyc()
+        total_transactions = rawsql.count_transactions()
+        total_wallets = rawsql.count_wallets()
 
-        volume_rows = rawsql.fetchall(
-            "SELECT sw.currency_id AS currency, SUM(t.amount) AS total, "
-            "COUNT(t.transaction_id) AS count "
-            "FROM wallet_transaction t "
-            "JOIN wallet_wallet sw ON sw.wallet_id = t.sender_wallet_id "
-            "GROUP BY sw.currency_id ORDER BY total DESC"
-        )
+        volume_rows = rawsql.get_transaction_report_rows()
 
         since = timezone.now() - timezone.timedelta(days=14)
-        daily_rows = rawsql.fetchall(
-            "SELECT DATE(date) AS day, COUNT(transaction_id) AS count, "
-            "SUM(amount) AS volume FROM wallet_transaction "
-            "WHERE date >= %s GROUP BY DATE(date) ORDER BY day",
-            [since],
-        )
+        daily_rows = rawsql.get_daily_transaction_report(since)
         daily_series = [
             {"day": r['day'].isoformat(), "count": r['count'], "volume": str(r['volume'])}
             for r in daily_rows
@@ -2196,7 +2128,7 @@ class AdminFlaggedUsersView(generics.ListAPIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get_queryset(self):
-        rows = rawsql.find_all(User, "is_flagged = 1", order_by='flagged_at DESC')
+        rows = rawsql.get_flagged_users()
         return [hydrate_user(r) for r in rows]
 
 
@@ -2207,7 +2139,7 @@ class AdminClearFlagView(APIView):
 
     def post(self, request, pk):
 
-        row = rawsql.get_row(User, 'id', pk)
+        row = rawsql.get_user_by_id(pk)
         if row is None:
             return Response(
                 {"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND,
@@ -2237,7 +2169,7 @@ class ScheduledPaymentListCreateView(generics.ListCreateAPIView):
     serializer_class = ScheduledPaymentSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(ScheduledPayment, "owner_id = %s", [self.request.user.id], order_by='next_run_at')
+        rows = rawsql.get_scheduled_payments_for_owner(self.request.user.id)
         return [
             rawsql.hydrate(ScheduledPayment, row, sender_wallet=get_wallet_or_404(row['sender_wallet_id']))
             for row in rows
@@ -2271,30 +2203,23 @@ class ScheduledPaymentListCreateView(generics.ListCreateAPIView):
                 )
             recipient_wallet_id = recipient_wallet.wallet_id
             recipient_phone = None
-        elif recipient_phone and not rawsql.exists_where(User, "phone = %s", [recipient_phone]):
+        elif recipient_phone and not rawsql.user_phone_exists(recipient_phone):
             return Response(
                 {"detail": "No account found for this recipient number."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         schedule_id = f"SCH-{uuid.uuid4().hex[:12].upper()}"
-        rawsql.insert(
-            ScheduledPayment,
-            schedule_id=schedule_id,
-            owner_id=request.user.id,
-            sender_wallet_id=sender_wallet.wallet_id,
-            recipient_phone=recipient_phone,
-            recipient_wallet_id=recipient_wallet_id,
-            amount=data['amount'],
-            note=data.get('note', ''),
-            frequency=data['frequency'],
-            next_run_at=data['next_run_at'],
-            last_run_at=None,
-            status='ACTIVE',
-            created_at=timezone.now(),
-        )
+        rawsql.create_scheduled_payment({
+            'schedule_id': schedule_id, 'owner_id': request.user.id,
+            'sender_wallet_id': sender_wallet.wallet_id, 'recipient_phone': recipient_phone,
+            'recipient_wallet_id': recipient_wallet_id, 'amount': data['amount'],
+            'note': data.get('note', ''), 'frequency': data['frequency'],
+            'next_run_at': data['next_run_at'], 'last_run_at': None,
+            'status': 'ACTIVE', 'created_at': timezone.now(),
+        })
         schedule = rawsql.hydrate(
-            ScheduledPayment, rawsql.get_row(ScheduledPayment, 'schedule_id', schedule_id),
+            ScheduledPayment, rawsql.get_scheduled_payment(schedule_id),
             sender_wallet=sender_wallet,
         )
 
@@ -2313,16 +2238,14 @@ class ScheduledPaymentCancelView(APIView):
 
     def post(self, request, schedule_id):
 
-        row = rawsql.find_one(
-            ScheduledPayment, "schedule_id = %s AND owner_id = %s", [schedule_id, request.user.id]
-        )
+        row = rawsql.get_scheduled_payment_for_owner(schedule_id, request.user.id)
         if row is None:
             return Response(
                 {"detail": "Scheduled payment not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        rawsql.update_by_pk(ScheduledPayment, 'schedule_id', row['schedule_id'], status='CANCELLED')
+        rawsql.update_scheduled_payment(row['schedule_id'], {'status': 'CANCELLED'})
         row['status'] = 'CANCELLED'
         schedule = rawsql.hydrate(ScheduledPayment, row, sender_wallet=get_wallet_or_404(row['sender_wallet_id']))
 
@@ -2333,9 +2256,7 @@ class ScheduledPaymentPauseToggleView(APIView):
 
     def post(self, request, schedule_id):
 
-        row = rawsql.find_one(
-            ScheduledPayment, "schedule_id = %s AND owner_id = %s", [schedule_id, request.user.id]
-        )
+        row = rawsql.get_scheduled_payment_for_owner(schedule_id, request.user.id)
         if row is None:
             return Response(
                 {"detail": "Scheduled payment not found."},
@@ -2349,7 +2270,7 @@ class ScheduledPaymentPauseToggleView(APIView):
             )
 
         new_status = 'PAUSED' if row['status'] == 'ACTIVE' else 'ACTIVE'
-        rawsql.update_by_pk(ScheduledPayment, 'schedule_id', row['schedule_id'], status=new_status)
+        rawsql.update_scheduled_payment(row['schedule_id'], {'status': new_status})
         row['status'] = new_status
         schedule = rawsql.hydrate(ScheduledPayment, row, sender_wallet=get_wallet_or_404(row['sender_wallet_id']))
 
@@ -2370,18 +2291,12 @@ def get_money_request_or_404(pk, payer=None):
     """Raw-SQL fetch of one MoneyRequest, hydrated with `.requester`,
     `.payer`, and `.requester_wallet` (with its `.currency_id`) attached
     so MoneyRequestSerializer needs no further queries."""
-    where_sql = "request_id = %s"
-    params = [pk]
-    if payer is not None:
-        where_sql += " AND payer_id = %s"
-        params.append(payer.id)
-
-    row = rawsql.find_one(MoneyRequest, where_sql, params)
+    row = rawsql.get_money_request(pk, payer.id if payer is not None else None)
     if row is None:
         raise MoneyRequest.DoesNotExist
 
-    requester = hydrate_user(rawsql.get_row(User, 'id', row['requester_id']))
-    payer_user = hydrate_user(rawsql.get_row(User, 'id', row['payer_id']))
+    requester = hydrate_user(rawsql.get_user_by_id(row['requester_id']))
+    payer_user = hydrate_user(rawsql.get_user_by_id(row['payer_id']))
     requester_wallet = get_wallet_or_404(row['requester_wallet_id'])
 
     return rawsql.hydrate(
@@ -2391,7 +2306,7 @@ def get_money_request_or_404(pk, payer=None):
 
 
 def save_money_request_fields(money_request, **fields):
-    rawsql.update_by_pk(MoneyRequest, 'request_id', money_request.request_id, **fields)
+    rawsql.update_money_request_fields(money_request.request_id, fields)
     for field, value in fields.items():
         setattr(money_request, field, value)
 
@@ -2400,11 +2315,7 @@ class MoneyRequestListCreateView(APIView):
 
     def get(self, request):
 
-        rows = rawsql.find_all(
-            MoneyRequest,
-            "requester_id = %s OR payer_id = %s", [request.user.id, request.user.id],
-            order_by='created_at DESC',
-        )
+        rows = rawsql.get_money_requests_for_user(request.user.id)
         requests_list = [
             get_money_request_or_404(row['request_id']) for row in rows
         ]
@@ -2420,7 +2331,7 @@ class MoneyRequestListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        payer_row = rawsql.find_one(User, "phone = %s", [data['payer_phone']])
+        payer_row = rawsql.get_user_by_phone(data['payer_phone'])
         if payer_row is None:
             return Response(
                 {"detail": "No account found for this number."},
@@ -2444,9 +2355,7 @@ class MoneyRequestListCreateView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
         else:
-            default_row = rawsql.find_one(
-                Wallet, "user_id = %s AND is_default_receive = 1", [request.user.id]
-            )
+            default_row = rawsql.get_default_receive_wallet(request.user.id)
             if not default_row:
                 return Response(
                     {"detail": "You have no default receive wallet."},
@@ -2455,19 +2364,12 @@ class MoneyRequestListCreateView(APIView):
             requester_wallet = get_wallet_or_404(default_row['wallet_id'], user=request.user)
 
         request_id = f"REQ-{uuid.uuid4().hex[:12].upper()}"
-        rawsql.insert(
-            MoneyRequest,
-            request_id=request_id,
-            requester_id=request.user.id,
-            requester_wallet_id=requester_wallet.wallet_id,
-            payer_id=payer.id,
-            amount=data['amount'],
-            note=data.get('note', ''),
-            status='PENDING',
-            transaction_id=None,
-            created_at=timezone.now(),
-            responded_at=None,
-        )
+        rawsql.create_money_request({
+            'request_id': request_id, 'requester_id': request.user.id,
+            'requester_wallet_id': requester_wallet.wallet_id, 'payer_id': payer.id,
+            'amount': data['amount'], 'note': data.get('note', ''), 'status': 'PENDING',
+            'transaction_id': None, 'created_at': timezone.now(), 'responded_at': None,
+        })
         money_request = get_money_request_or_404(request_id)
 
         create_notification(
@@ -2544,6 +2446,14 @@ class MoneyRequestAcceptView(APIView):
         requester_wallet = money_request.requester_wallet
 
         with db_transaction.atomic():
+
+            lock_wallets(payer_wallet, requester_wallet)
+
+            if amount > payer_wallet.balance:
+                return Response(
+                    {"detail": "Insufficient balance."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             save_wallet_fields(payer_wallet, balance=payer_wallet.balance - amount)
             save_wallet_fields(requester_wallet, balance=requester_wallet.balance + received_amount)
@@ -2668,9 +2578,7 @@ class DeactivateAccountView(APIView):
 
             save_user_fields(request.user, status='CLOSED', is_active=False)
 
-            rawsql.update_where(
-                Wallet, "user_id = %s", [request.user.id], wallet_status='FROZEN',
-            )
+            rawsql.freeze_wallets_for_user(request.user.id)
 
             create_audit_log(request.user, 'ACCOUNT_DEACTIVATE', ip_address=client_ip(request))
 
@@ -2691,19 +2599,17 @@ def get_group_payment_or_404(group_payment_id):
     that forbids direct instance assignment, so the list is attached
     under `._participants` instead and GroupPaymentSerializer's
     `participants` field reads it from there (see serializers.py)."""
-    row = rawsql.get_row(GroupPayment, 'group_payment_id', group_payment_id)
+    row = rawsql.get_group_payment(group_payment_id)
     if row is None:
         raise GroupPayment.DoesNotExist
 
-    organizer = hydrate_user(rawsql.get_row(User, 'id', row['organizer_id']))
+    organizer = hydrate_user(rawsql.get_user_by_id(row['organizer_id']))
     receiver_wallet = get_wallet_or_404(row['receiver_wallet_id'])
 
-    participant_rows = rawsql.find_all(
-        GroupPaymentParticipant, "group_payment_id = %s", [group_payment_id]
-    )
+    participant_rows = rawsql.get_group_payment_participants(group_payment_id)
     participants = []
     for p_row in participant_rows:
-        p_user = hydrate_user(rawsql.get_row(User, 'id', p_row['user_id']))
+        p_user = hydrate_user(rawsql.get_user_by_id(p_row['user_id']))
         participants.append(rawsql.hydrate(GroupPaymentParticipant, p_row, user=p_user))
 
     group_payment = rawsql.hydrate(
@@ -2714,7 +2620,7 @@ def get_group_payment_or_404(group_payment_id):
 
 
 def save_group_payment_fields(group_payment, **fields):
-    rawsql.update_by_pk(GroupPayment, 'group_payment_id', group_payment.group_payment_id, **fields)
+    rawsql.update_group_payment(group_payment.group_payment_id, fields)
     for field, value in fields.items():
         setattr(group_payment, field, value)
 
@@ -2733,13 +2639,7 @@ class GroupPaymentListCreateView(generics.ListCreateAPIView):
     serializer_class = GroupPaymentSerializer
 
     def get_queryset(self):
-        rows = rawsql.fetchall(
-            "SELECT DISTINCT gp.group_payment_id FROM wallet_grouppayment gp "
-            "LEFT JOIN wallet_grouppaymentparticipant p ON p.group_payment_id = gp.group_payment_id "
-            "WHERE gp.organizer_id = %s OR p.user_id = %s "
-            "ORDER BY gp.created_at DESC",
-            [self.request.user.id, self.request.user.id],
-        )
+        rows = rawsql.get_group_payment_ids_for_user(self.request.user.id)
         return [get_group_payment_or_404(r['group_payment_id']) for r in rows]
 
     def create(self, request, *args, **kwargs):
@@ -2759,42 +2659,29 @@ class GroupPaymentListCreateView(generics.ListCreateAPIView):
         with db_transaction.atomic():
 
             group_payment_id = f"GRP-{uuid.uuid4().hex[:10].upper()}"
-            rawsql.insert(
-                GroupPayment,
-                group_payment_id=group_payment_id,
-                organizer_id=request.user.id,
-                receiver_wallet_id=receiver_wallet.wallet_id,
-                title=data['title'],
-                total_amount=data['total_amount'],
-                status='OPEN',
-                created_at=timezone.now(),
-            )
+            rawsql.create_group_payment({
+                'group_payment_id': group_payment_id, 'organizer_id': request.user.id,
+                'receiver_wallet_id': receiver_wallet.wallet_id, 'title': data['title'],
+                'total_amount': data['total_amount'], 'status': 'OPEN', 'created_at': timezone.now(),
+            })
 
             for entry in data['participants']:
 
-                participant_row = rawsql.find_one(User, "phone = %s", [entry['phone']])
+                participant_row = rawsql.get_user_by_phone(entry['phone'])
 
                 if not participant_row:
                     continue  # skip unknown numbers rather than failing the whole split
                 participant_user = hydrate_user(participant_row)
 
-                existing = rawsql.find_one(
-                    GroupPaymentParticipant,
-                    "group_payment_id = %s AND user_id = %s",
-                    [group_payment_id, participant_user.id],
-                )
+                existing = rawsql.get_group_payment_participant(group_payment_id, participant_user.id)
                 if existing:
-                    rawsql.update_by_pk(
-                        GroupPaymentParticipant, 'id', existing['id'],
-                        share_amount=entry['share_amount'],
-                    )
+                    rawsql.update_group_payment_participant(existing['id'], {'share_amount': entry['share_amount']})
                 else:
-                    rawsql.insert(
-                        GroupPaymentParticipant,
-                        group_payment_id=group_payment_id, user_id=participant_user.id,
-                        share_amount=entry['share_amount'], status='PENDING',
-                        transaction_id=None, paid_at=None,
-                    )
+                    rawsql.create_group_payment_participant({
+                        'group_payment_id': group_payment_id, 'user_id': participant_user.id,
+                        'share_amount': entry['share_amount'], 'status': 'PENDING',
+                        'transaction_id': None, 'paid_at': None,
+                    })
 
                 create_notification(
                     participant_user, type='TRANSACTION',
@@ -2829,10 +2716,7 @@ class GroupPaymentPayShareView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        participant_row = rawsql.find_one(
-            GroupPaymentParticipant,
-            "group_payment_id = %s AND user_id = %s", [group_payment_id, request.user.id],
-        )
+        participant_row = rawsql.get_group_payment_participant(group_payment_id, request.user.id)
         if participant_row is None:
             return Response(
                 {"detail": "You're not a participant in this split payment."},
@@ -2874,6 +2758,14 @@ class GroupPaymentPayShareView(APIView):
 
         with db_transaction.atomic():
 
+            lock_wallets(payer_wallet, group_payment.receiver_wallet)
+
+            if share_amount + fee > payer_wallet.balance:
+                return Response(
+                    {"detail": "Insufficient balance to cover your share plus fee."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             save_wallet_fields(payer_wallet, balance=payer_wallet.balance - (share_amount + fee))
             save_wallet_fields(
                 group_payment.receiver_wallet,
@@ -2891,10 +2783,7 @@ class GroupPaymentPayShareView(APIView):
                 category=f"Split: {group_payment.title}",
             )
 
-            rawsql.update_by_pk(
-                GroupPaymentParticipant, 'id', participant_row['id'],
-                status='PAID', transaction_id=txn.transaction_id, paid_at=timezone.now(),
-            )
+            rawsql.update_group_payment_participant(participant_row['id'], {'status': 'PAID', 'transaction_id': txn.transaction_id, 'paid_at': timezone.now()})
 
             group_payment.refresh_status()
             save_group_payment_fields(group_payment, status=group_payment.status)
@@ -2916,12 +2805,7 @@ class GroupPaymentPayShareView(APIView):
 # =====================================================
 
 def get_savings_goal_or_404(goal_id, user=None):
-    where_sql = "goal_id = %s"
-    params = [goal_id]
-    if user is not None:
-        where_sql += " AND user_id = %s"
-        params.append(user.id)
-    row = rawsql.find_one(SavingsGoal, where_sql, params)
+    row = rawsql.get_savings_goal(goal_id, user.id if user is not None else None)
     if row is None:
         raise SavingsGoal.DoesNotExist
     savings_wallet = get_wallet_or_404(row['savings_wallet_id'])
@@ -2929,7 +2813,7 @@ def get_savings_goal_or_404(goal_id, user=None):
 
 
 def save_savings_goal_fields(goal, **fields):
-    rawsql.update_by_pk(SavingsGoal, 'goal_id', goal.goal_id, **fields)
+    rawsql.update_savings_goal(goal.goal_id, fields)
     for field, value in fields.items():
         setattr(goal, field, value)
 
@@ -2939,7 +2823,7 @@ class SavingsGoalListCreateView(generics.ListCreateAPIView):
     serializer_class = SavingsGoalSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(SavingsGoal, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_savings_goals(self.request.user.id)
         return [
             rawsql.hydrate(
                 SavingsGoal, row,
@@ -2962,18 +2846,13 @@ class SavingsGoalListCreateView(generics.ListCreateAPIView):
             )
 
         goal_id = f"GOAL-{uuid.uuid4().hex[:10].upper()}"
-        rawsql.insert(
-            SavingsGoal,
-            goal_id=goal_id,
-            user_id=request.user.id,
-            savings_wallet_id=savings_wallet.wallet_id,
-            name=data['name'],
-            target_amount=data['target_amount'],
-            deadline=data.get('deadline'),
-            auto_save_percent=data.get('auto_save_percent', 0),
-            is_active=True,
-            created_at=timezone.now(),
-        )
+        rawsql.create_savings_goal({
+            'goal_id': goal_id, 'user_id': request.user.id,
+            'savings_wallet_id': savings_wallet.wallet_id, 'name': data['name'],
+            'target_amount': data['target_amount'], 'deadline': data.get('deadline'),
+            'auto_save_percent': data.get('auto_save_percent', 0), 'is_active': True,
+            'created_at': timezone.now(),
+        })
         goal = get_savings_goal_or_404(goal_id, user=request.user)
 
         return Response(SavingsGoalSerializer(goal).data, status=status.HTTP_201_CREATED)
@@ -3013,6 +2892,13 @@ class SavingsGoalTopUpView(APIView):
         receive_amount = data['amount'] * rate
 
         with db_transaction.atomic():
+
+            lock_wallets(from_wallet, goal.savings_wallet)
+
+            if data['amount'] > from_wallet.balance:
+                return Response(
+                    {"detail": "Insufficient balance."}, status=status.HTTP_400_BAD_REQUEST,
+                )
 
             save_wallet_fields(from_wallet, balance=from_wallet.balance - data['amount'])
             save_wallet_fields(goal.savings_wallet, balance=goal.savings_wallet.balance + receive_amount)
@@ -3060,18 +2946,16 @@ class PriceAlertListCreateView(generics.ListCreateAPIView):
     serializer_class = PriceAlertSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(PriceAlert, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_price_alerts(self.request.user.id)
         return rawsql.hydrate_all(PriceAlert, rows, user=self.request.user)
 
     def perform_create(self, serializer):
         fields = dict(serializer.validated_data)
         alert_id = f"ALERT-{uuid.uuid4().hex[:10].upper()}"
-        rawsql.insert(
-            PriceAlert, alert_id=alert_id, user_id=self.request.user.id,
-            is_active=True, triggered_at=None, created_at=timezone.now(), **fields,
-        )
+        fields.update({'alert_id': alert_id, 'user_id': self.request.user.id, 'is_active': True, 'triggered_at': None, 'created_at': timezone.now()})
+        rawsql.create_price_alert(fields)
         alert = rawsql.hydrate(
-            PriceAlert, rawsql.get_row(PriceAlert, 'alert_id', alert_id), user=self.request.user,
+            PriceAlert, rawsql.get_price_alert(alert_id), user=self.request.user,
         )
         serializer.instance = alert
 
@@ -3082,11 +2966,11 @@ class PriceAlertDeleteView(generics.DestroyAPIView):
     lookup_field = 'alert_id'
 
     def get_queryset(self):
-        rows = rawsql.find_all(PriceAlert, "user_id = %s", [self.request.user.id])
+        rows = rawsql.get_price_alerts(self.request.user.id)
         return rawsql.hydrate_all(PriceAlert, rows, user=self.request.user)
 
     def perform_destroy(self, instance):
-        rawsql.delete_by_pk(PriceAlert, 'alert_id', instance.alert_id)
+        rawsql.delete_price_alert(instance.alert_id)
 
 
 # =====================================================
@@ -3094,14 +2978,10 @@ class PriceAlertDeleteView(generics.DestroyAPIView):
 # =====================================================
 
 def get_payment_link_or_404(link_id, active_only=False):
-    where_sql = "link_id = %s"
-    params = [link_id]
-    if active_only:
-        where_sql += " AND is_active = 1"
-    row = rawsql.find_one(PaymentLink, where_sql, params)
+    row = rawsql.get_payment_link(link_id, active_only)
     if row is None:
         raise PaymentLink.DoesNotExist
-    merchant = hydrate_user(rawsql.get_row(User, 'id', row['merchant_id']))
+    merchant = hydrate_user(rawsql.get_user_by_id(row['merchant_id']))
     receiving_wallet = get_wallet_or_404(row['receiving_wallet_id'])
     return rawsql.hydrate(PaymentLink, row, merchant=merchant, receiving_wallet=receiving_wallet)
 
@@ -3111,7 +2991,7 @@ class PaymentLinkListCreateView(generics.ListCreateAPIView):
     serializer_class = PaymentLinkSerializer
 
     def get_queryset(self):
-        rows = rawsql.find_all(PaymentLink, "merchant_id = %s", [self.request.user.id], order_by='created_at DESC')
+        rows = rawsql.get_payment_links_for_merchant(self.request.user.id)
         return [
             rawsql.hydrate(
                 PaymentLink, row,
@@ -3138,18 +3018,14 @@ class PaymentLinkListCreateView(generics.ListCreateAPIView):
             )
 
         link_id = secrets.token_urlsafe(8)
-        rawsql.insert(
-            PaymentLink,
-            link_id=link_id,
-            merchant_id=request.user.id,
-            receiving_wallet_id=wallet.wallet_id,
-            title=request.data.get('title', 'Payment'),
-            amount=request.data.get('amount') or None,
-            is_active=True,
-            created_at=timezone.now(),
-        )
+        rawsql.create_payment_link({
+            'link_id': link_id, 'merchant_id': request.user.id,
+            'receiving_wallet_id': wallet.wallet_id, 'title': request.data.get('title', 'Payment'),
+            'amount': request.data.get('amount') or None, 'is_active': True,
+            'created_at': timezone.now(),
+        })
         link = rawsql.hydrate(
-            PaymentLink, rawsql.get_row(PaymentLink, 'link_id', link_id),
+            PaymentLink, rawsql.get_payment_link(link_id),
             merchant=request.user, receiving_wallet=wallet,
         )
 
@@ -3218,6 +3094,13 @@ class PaymentLinkPublicView(APIView):
             )
 
         with db_transaction.atomic():
+
+            lock_wallets(payer_wallet, link.receiving_wallet)
+
+            if amount + fee > payer_wallet.balance:
+                return Response(
+                    {"detail": "Insufficient balance."}, status=status.HTTP_400_BAD_REQUEST,
+                )
 
             save_wallet_fields(payer_wallet, balance=payer_wallet.balance - (amount + fee))
             save_wallet_fields(link.receiving_wallet, balance=link.receiving_wallet.balance + receive_amount)

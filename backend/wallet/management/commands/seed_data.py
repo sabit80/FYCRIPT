@@ -5,7 +5,6 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from wallet import db as rawsql
-from wallet.models import Currency, Role, ExchangeRate
 
 
 CURRENCIES = [
@@ -41,16 +40,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
 
         for name, ctype, symbol in CURRENCIES:
-            rawsql.upsert(
-                Currency, "currency_name = %s", [name],
-                {"type": ctype, "symbol": symbol},
-            )
+            rawsql.save_currency(name, ctype, symbol)
         self.stdout.write(self.style.SUCCESS(
             f"Currencies ready ({len(CURRENCIES)})."
         ))
 
         for role_name in ROLES:
-            rawsql.get_or_create_simple(Role, role_name=role_name)
+            role = rawsql.get_role_by_name(role_name)
+            if role is None:
+                rawsql.create_role(role_name)
         self.stdout.write(self.style.SUCCESS(
             f"Roles ready ({len(ROLES)})."
         ))
@@ -58,10 +56,7 @@ class Command(BaseCommand):
         count = 0
         for from_code, to_code in permutations(RATES_TO_USD.keys(), 2):
             rate = RATES_TO_USD[from_code] / RATES_TO_USD[to_code]
-            rawsql.upsert(
-                ExchangeRate, "from_curr_id = %s AND to_curr_id = %s", [from_code, to_code],
-                {"rate": rate, "last_updated": timezone.now()},
-            )
+            rawsql.save_exchange_rate(from_code, to_code, rate, timezone.now())
             count += 1
         self.stdout.write(self.style.SUCCESS(
             f"Exchange rates ready ({count} pairs)."

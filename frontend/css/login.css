@@ -334,6 +334,38 @@
 
 
 /* =====================================================
+   FORGOT PASSWORD
+===================================================== */
+
+.forgot-password-row {
+
+    text-align: right;
+
+    margin-top: 8px;
+
+}
+
+
+.forgot-password-row a {
+
+    font-size: 13px;
+
+    color: var(--accent);
+
+    font-weight: 600;
+
+}
+
+
+.forgot-password-row a:hover {
+
+    text-decoration: underline;
+
+}
+
+
+
+/* =====================================================
    CREATE ACCOUNT
 ===================================================== */
 

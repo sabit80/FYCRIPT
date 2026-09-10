@@ -27,14 +27,19 @@ against everything else.
 ### What changed, and how
 
 - **`wallet/db.py`** is the project's "own ORM" (explicitly allowed by
-  the assignment): `insert`, `update_by_pk`, `update_where`,
-  `delete_by_pk`, `get_row`, `find_one`, `find_all`, `count_where`,
-  `exists_where`, `upsert`, `get_or_create_simple`, plus `hydrate()` /
-  `hydrate_all()` to turn raw dict rows into (unsaved) Django model
-  instances — so DRF's `ModelSerializer`s keep working unchanged, with
-  zero ORM queries firing during serialization. Every function uses
-  `%s` placeholders with parameters passed separately — never
-  string-formats a value into SQL.
+  the assignment): one explicit, feature-specific function per query
+  (`get_user_by_id`, `create_wallet`, `update_wallet`,
+  `get_due_scheduled_payments`, ...; see `RAW_SQL_GUIDE.md` for the
+  full list), plus `hydrate()` / `hydrate_all()` to turn raw dict rows
+  into (unsaved) Django model instances — so DRF's `ModelSerializer`s
+  keep working unchanged, with zero ORM queries firing during
+  serialization. Every function uses `%s` placeholders with parameters
+  passed separately — never string-formats a value into SQL. (An
+  earlier draft of this file described `db.py` as a set of *generic*
+  CRUD helpers — `insert`, `find_one`, `find_all`, `update_by_pk`,
+  `upsert`, etc. Those were replaced with the feature-specific
+  functions listed above and in `RAW_SQL_GUIDE.md`; this paragraph was
+  out of date and has been corrected.)
 - **`wallet/models.py`** — model *classes* are kept only for schema/
   migrations (`manage.py migrate` still needs them) and because
   SimpleJWT needs a model instance for `request.user`. `Wallet.save()`'s
@@ -99,6 +104,34 @@ against everything else.
   "SELECT ..."`) after each of the above to confirm balances,
   transaction rows, and notification rows were written correctly —
   not just that the HTTP response looked right.
+
+### Follow-up fix: wallet-balance race condition
+
+Every balance-changing endpoint (Send/Shift, auto-save, bank deposit/
+withdraw, fund wallet, money-request accept, group-payment pay-share,
+savings-goal top-up, payment-link pay, and the `run_scheduled_payments`
+command) used to read a wallet's balance with a plain `SELECT`, do the
+arithmetic in Python, and write it back with a plain `UPDATE` — all
+inside a Django `db_transaction.atomic()` block, but **without** ever
+locking the wallet row. Under MySQL/MariaDB's default isolation level
+that doesn't stop two concurrent requests against the same wallet from
+both reading the same starting balance, both passing the
+sufficient-balance check, and both writing — corrupting the balance
+(effectively a double-spend). `ExchangeView` was the one exception,
+since it already delegated to the `sp_exchange_funds` stored procedure,
+which takes `FOR UPDATE` locks on both wallet rows itself.
+
+Fixed by adding `db.lock_wallets_for_update()` (a `SELECT ... FOR
+UPDATE`, wallets always locked in sorted-by-`wallet_id` order so two
+transfers moving money in opposite directions between the same two
+wallets can't deadlock each other) and a `views.lock_wallets()` wrapper
+that locks the given `Wallet` instance(s) and refreshes their in-memory
+`balance` from the just-locked row. Every balance-mutating call site
+now calls `lock_wallets(...)` immediately after entering its
+`atomic()` block and **re-checks** the sufficient-balance condition
+against the freshly locked value before writing (the original,
+unlocked check further up the view is left in place as a cheap early
+rejection — it just isn't relied on for correctness anymore).
 
 ### Not touched
 
