@@ -24,7 +24,7 @@ from wallet.models import ScheduledPayment, User, Wallet
 from wallet.views import (
     get_rate, calculate_send_fee, check_send_limit, check_fraud_velocity,
     create_audit_log, create_notification, create_transaction,
-    save_wallet_fields, get_wallet_or_404, hydrate_user,
+    save_wallet_fields, get_wallet_or_404, hydrate_user, lock_wallets,
 )
 
 
@@ -33,14 +33,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        due_rows = rawsql.find_all(
-            ScheduledPayment, "status = 'ACTIVE' AND next_run_at <= %s", [timezone.now()],
-        )
+        due_rows = rawsql.get_due_scheduled_payments(timezone.now())
 
         executed, failed = 0, 0
 
         for row in due_rows:
-            owner = hydrate_user(rawsql.get_row(User, 'id', row['owner_id']))
+            owner = hydrate_user(rawsql.get_user_by_id(row['owner_id']))
             sender_wallet = get_wallet_or_404(row['sender_wallet_id'])
             try:
                 self._execute_one(row, owner, sender_wallet)
@@ -76,14 +74,12 @@ class Command(BaseCommand):
                 receiver_wallet = get_wallet_or_404(row['recipient_wallet_id'])
                 txn_type = 'SHIFT'
             else:
-                recipient_row = rawsql.find_one(User, "phone = %s", [row['recipient_phone']])
+                recipient_row = rawsql.get_user_by_phone(row['recipient_phone'])
                 if recipient_row is None:
                     raise ValueError("recipient account no longer exists")
                 recipient = hydrate_user(recipient_row)
 
-                default_row = rawsql.find_one(
-                    Wallet, "user_id = %s AND is_default_receive = 1", [recipient.id],
-                )
+                default_row = rawsql.get_default_receive_wallet(recipient.id)
                 if not default_row:
                     raise ValueError("recipient has no receive wallet")
                 receiver_wallet = get_wallet_or_404(default_row['wallet_id'])
@@ -94,6 +90,12 @@ class Command(BaseCommand):
             rate = get_rate(sender_wallet.currency_id, receiver_wallet.currency_id)
             receive_amount = row['amount'] * rate
             fee = calculate_send_fee(row['amount']) if txn_type == 'SEND' else Decimal("0")
+
+            # Re-lock and re-read both balances now, inside this schedule's
+            # own atomic() block, in case another request (a manual Send,
+            # another due schedule, etc.) touched either wallet between the
+            # SELECT in handle() and this point.
+            lock_wallets(sender_wallet, receiver_wallet)
 
             if row['amount'] + fee > sender_wallet.balance:
                 raise ValueError("insufficient balance")
@@ -134,10 +136,9 @@ class Command(BaseCommand):
             else:  # ONCE
                 new_status = 'CANCELLED'
 
-            rawsql.update_by_pk(
-                ScheduledPayment, 'schedule_id', row['schedule_id'],
-                last_run_at=timezone.now(), next_run_at=next_run_at, status=new_status,
-            )
+            rawsql.update_scheduled_payment(row['schedule_id'], {
+                'last_run_at': timezone.now(), 'next_run_at': next_run_at, 'status': new_status,
+            })
 
 
 class _FakeRequest:

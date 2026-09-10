@@ -15,9 +15,7 @@ from . import db as rawsql
 
 
 def is_blacklisted(jti):
-    return bool(rawsql.scalar(
-        "SELECT 1 FROM wallet_blacklisted_token WHERE jti = %s LIMIT 1", [jti],
-    ))
+    return rawsql.is_blacklisted_token(jti)
 
 
 class BlacklistCheckingJWTAuthentication(JWTAuthentication):

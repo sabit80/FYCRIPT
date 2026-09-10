@@ -28,7 +28,6 @@ from django.db import transaction as db_transaction
 from django.utils import timezone
 
 from wallet import db as rawsql
-from wallet.models import Currency, ExchangeRate
 
 COINGECKO_IDS = {
     'BTC': 'bitcoin',
@@ -76,18 +75,12 @@ class Command(BaseCommand):
                 prices = data.get(cg_id, {})
                 for fiat, price in prices.items():
                     fiat_code = fiat.upper()
-                    if not rawsql.exists_where(Currency, "currency_name = %s", [fiat_code]):
+                    if not rawsql.currency_exists(fiat_code):
                         continue
                     rate = Decimal(str(price))
-                    rawsql.upsert(
-                        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s", [symbol, fiat_code],
-                        {'rate': rate, 'last_updated': timezone.now()},
-                    )
+                    rawsql.save_exchange_rate(symbol, fiat_code, rate, timezone.now())
                     if rate != 0:
-                        rawsql.upsert(
-                            ExchangeRate, "from_curr_id = %s AND to_curr_id = %s", [fiat_code, symbol],
-                            {'rate': Decimal("1") / rate, 'last_updated': timezone.now()},
-                        )
+                        rawsql.save_exchange_rate(fiat_code, symbol, Decimal("1") / rate, timezone.now())
                     count += 2
 
         return count
@@ -109,20 +102,14 @@ class Command(BaseCommand):
 
         with db_transaction.atomic():
             for code, rate in rates.items():
-                if not rawsql.exists_where(Currency, "currency_name = %s AND type = 'FIAT'", [code]):
+                if not rawsql.currency_exists_with_type(code, 'FIAT'):
                     continue
                 if code == 'USD':
                     continue
                 rate = Decimal(str(rate))
-                rawsql.upsert(
-                    ExchangeRate, "from_curr_id = %s AND to_curr_id = %s", ['USD', code],
-                    {'rate': rate, 'last_updated': timezone.now()},
-                )
+                rawsql.save_exchange_rate('USD', code, rate, timezone.now())
                 if rate != 0:
-                    rawsql.upsert(
-                        ExchangeRate, "from_curr_id = %s AND to_curr_id = %s", [code, 'USD'],
-                        {'rate': Decimal("1") / rate, 'last_updated': timezone.now()},
-                    )
+                    rawsql.save_exchange_rate(code, 'USD', Decimal("1") / rate, timezone.now())
                 count += 2
 
         return count

@@ -145,7 +145,7 @@ class User(AbstractUser):
         the higher limits.
         """
         from . import db as rawsql
-        kyc_row = rawsql.find_one(KYC, "user_id = %s", [self.id])
+        kyc_row = rawsql.get_kyc_by_user(self.id)
         if kyc_row and kyc_row['verification_status'] == 'APPROVED':
             return 'VERIFIED'
         return 'UNVERIFIED'
@@ -721,10 +721,7 @@ class GroupPayment(models.Model):
         """Marks itself COMPLETED once every participant has paid.
         Called after each participant payment; caller saves."""
         from . import db as rawsql
-        if not rawsql.exists_where(
-            GroupPaymentParticipant,
-            "group_payment_id = %s AND status != 'PAID'", [self.group_payment_id],
-        ):
+        if not rawsql.group_payment_has_unpaid_participants(self.group_payment_id):
             self.status = 'COMPLETED'
 
     def __str__(self):

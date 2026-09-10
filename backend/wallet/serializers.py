@@ -91,15 +91,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_referral_code(self, value):
 
         value = (value or '').strip().upper()
-        if value and not rawsql.exists_where(
-            User, "referral_code = %s", [value]
-        ):
+        if value and not rawsql.referral_code_exists(value):
             raise serializers.ValidationError("That referral code doesn't exist.")
         return value
 
     def validate_email(self, value):
 
-        if rawsql.exists_where(User, "LOWER(email) = LOWER(%s)", [value]):
+        if rawsql.user_email_exists(value):
             raise serializers.ValidationError(
                 "An account with this email already exists."
             )
@@ -108,7 +106,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
 
-        if rawsql.exists_where(User, "phone = %s", [value]):
+        if rawsql.user_phone_exists(value):
             raise serializers.ValidationError(
                 "An account with this phone number already exists."
             )
@@ -117,7 +115,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_preferred_currency(self, value):
 
-        if not rawsql.exists_where(Currency, "currency_name = %s", [value]):
+        if not rawsql.currency_exists(value):
             raise serializers.ValidationError(
                 "Unknown currency. Choose from the supported currency list."
             )
@@ -150,42 +148,25 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         referrer_id = None
         if referral_code:
-            referrer_row = rawsql.find_one(
-                User, "referral_code = %s", [referral_code]
-            )
+            referrer_row = rawsql.get_user_by_referral_code(referral_code)
             if referrer_row:
                 referrer_id = referrer_row['id']
 
         now = timezone.now()
-        new_id = rawsql.insert(
-            User,
-            password=make_password(validated_data['password']),
-            last_login=None,
-            is_superuser=False,
-            first_name='',
-            last_name='',
-            is_staff=False,
-            is_active=True,
-            date_joined=now,
-            email=User.objects.normalize_email(validated_data['email']),
-            name=validated_data['name'],
-            phone=validated_data['phone'],
-            status='ACTIVE',
-            registration_date=now,
-            transaction_pin_hash=None,
-            flagged_at=None,
-            flagged_reason='',
-            is_flagged=False,
-            recovery_codes_hash='[]',
-            referral_code=generate_referral_code(),
-            referred_by_id=referrer_id,
-            two_factor_enabled=False,
-            two_factor_secret=None,
-            account_type='PERSONAL',
-            business_name='',
-        )
+        new_id = rawsql.create_user({
+            'password': make_password(validated_data['password']), 'last_login': None,
+            'is_superuser': False, 'first_name': '', 'last_name': '', 'is_staff': False,
+            'is_active': True, 'date_joined': now,
+            'email': validated_data['email'].strip().lower(), 'name': validated_data['name'],
+            'phone': validated_data['phone'], 'status': 'ACTIVE', 'registration_date': now,
+            'transaction_pin_hash': None, 'flagged_at': None, 'flagged_reason': '',
+            'is_flagged': False, 'recovery_codes_hash': '[]',
+            'referral_code': generate_referral_code(), 'referred_by_id': referrer_id,
+            'two_factor_enabled': False, 'two_factor_secret': None,
+            'account_type': 'PERSONAL', 'business_name': '',
+        })
 
-        row = rawsql.get_row(User, 'id', new_id)
+        row = rawsql.get_user_by_id(new_id)
         return rawsql.hydrate(User, row)
 
 
@@ -209,11 +190,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
     def get_roles(self, obj):
-        rows = rawsql.fetchall(
-            "SELECT r.role_name FROM wallet_userrole ur "
-            "JOIN wallet_role r ON r.id = ur.role_id WHERE ur.user_id = %s",
-            [obj.id],
-        )
+        rows = rawsql.get_user_roles(obj.id)
         return [row['role_name'] for row in rows]
 
     def get_kyc_tier(self, obj):
@@ -324,9 +301,7 @@ class WalletSerializer(serializers.ModelSerializer):
 
     def validate_currency(self, value):
 
-        if not rawsql.exists_where(
-            Currency, "currency_name = %s", [value.currency_name]
-        ):
+        if not rawsql.currency_exists(value.currency_name):
             raise serializers.ValidationError("Unknown currency.")
 
         return value

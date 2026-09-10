@@ -14,7 +14,6 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from wallet import db as rawsql
-from wallet.models import PriceAlert, ExchangeRate, User
 from wallet.views import create_notification, hydrate_user
 
 
@@ -23,27 +22,21 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        alerts = rawsql.find_all(PriceAlert, "is_active = 1 AND triggered_at IS NULL")
+        alerts = rawsql.get_active_price_alerts()
         fired = 0
 
         for alert in alerts:
 
-            rate_row = rawsql.find_one(
-                ExchangeRate, "from_curr_id = %s AND to_curr_id = %s",
-                [alert['from_currency'], alert['to_currency']],
-            )
+            rate_row = rawsql.get_price_alert_rate(alert['from_currency'], alert['to_currency'])
             if rate_row is None:
                 continue
             current_rate = rate_row['rate']
 
             if current_rate >= alert['threshold_rate']:
 
-                rawsql.update_by_pk(
-                    PriceAlert, 'alert_id', alert['alert_id'],
-                    triggered_at=timezone.now(), is_active=False,
-                )
+                rawsql.update_price_alert(alert['alert_id'], {'triggered_at': timezone.now(), 'is_active': False})
 
-                user = hydrate_user(rawsql.get_row(User, 'id', alert['user_id']))
+                user = hydrate_user(rawsql.get_user_by_id(alert['user_id']))
                 create_notification(
                     user, type='INFO',
                     message=(
