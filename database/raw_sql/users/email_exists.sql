@@ -1,0 +1,1 @@
+LOWER(email) = LOWER(%s)

@@ -425,37 +425,24 @@ def create_wallet_for_user(user, currency_name, is_default_receive=False):
 
     wallet_id = f"WAL-{uuid.uuid4().hex[:10].upper()}"
 
-    if is_default_receive:
-        rawsql.unset_other_default_wallets(user.id)
-
     currency_row = rawsql.get_currency_by_name(currency_name)
     currency = rawsql.hydrate(Currency, currency_row)
 
-    rawsql.create_wallet({
-        'wallet_id': wallet_id,
-        'user_id': user.id,
-        'currency_id': currency_name,
-        'balance': Decimal('0'),
-        'is_default_receive': is_default_receive,
-        'wallet_status': 'ACTIVE',
-        'name': f"{currency_name} Wallet",
-        'created_at': timezone.now(),
-    })
+    blockchain = ''
+    if currency.type == 'CRYPTO':
+        blockchain = {
+            'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tron (TRC20)',
+        }.get(currency_name, currency_name)
+    rawsql.call_procedure('sp_register_wallet', [
+        wallet_id, user.id, currency_name, f"{currency_name} Wallet",
+        f"ADR-{uuid.uuid4().hex[:10].upper()}" if blockchain else '',
+        blockchain, uuid.uuid4().hex if blockchain else '',
+        is_default_receive,
+    ])
     wallet = rawsql.hydrate(
         Wallet, rawsql.get_wallet_by_id(wallet_id),
         currency=currency, user=user,
     )
-
-    if currency.type == 'CRYPTO':
-        blockchain_map = {
-            'BTC': 'Bitcoin', 'ETH': 'Ethereum', 'USDT': 'Tron (TRC20)',
-        }
-        rawsql.create_crypto_address({
-            'address_id': f"ADR-{uuid.uuid4().hex[:10].upper()}",
-            'wallet_id': wallet_id,
-            'blockchain': blockchain_map.get(currency_name, currency_name),
-            'public_address': uuid.uuid4().hex,
-        })
 
     return wallet
 
@@ -1036,18 +1023,13 @@ class BankAccountDepositView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_deposit_funds', [
+            wallet.wallet_id, amount, transaction_id, 'Bank Deposit',
+        ])
+        txn = rawsql.hydrate(Transaction, rawsql.get_transaction_by_id(transaction_id))
+
         with db_transaction.atomic():
-
-            save_wallet_fields(wallet, balance=wallet.balance + amount)
-
-            txn = create_transaction(
-                sender_wallet_id=None,
-                receiver_wallet_id=wallet.wallet_id,
-                transaction_type='DEPOSIT',
-                amount=amount,
-                category='Bank Deposit',
-            )
-
             create_audit_log(
                 request.user, 'BANK_DEPOSIT',
                 remarks=f"{bank_account.bank_name} -> {wallet.wallet_id}",
@@ -1107,18 +1089,13 @@ class BankAccountWithdrawView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_withdraw_funds', [
+            wallet.wallet_id, amount, transaction_id, 'Bank Withdrawal',
+        ])
+        txn = rawsql.hydrate(Transaction, rawsql.get_transaction_by_id(transaction_id))
+
         with db_transaction.atomic():
-
-            save_wallet_fields(wallet, balance=wallet.balance - amount)
-
-            txn = create_transaction(
-                sender_wallet_id=wallet.wallet_id,
-                receiver_wallet_id=None,
-                transaction_type='WITHDRAW',
-                amount=amount,
-                category='Bank Withdrawal',
-            )
-
             create_audit_log(
                 request.user, 'BANK_WITHDRAW',
                 remarks=f"{wallet.wallet_id} -> {bank_account.bank_name}",
@@ -1434,17 +1411,12 @@ class FundWalletView(APIView):
         serializer.is_valid(raise_exception=True)
         amount = serializer.validated_data['amount']
 
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_deposit_funds', [
+            wallet.wallet_id, amount, transaction_id, '',
+        ])
+
         with db_transaction.atomic():
-
-            save_wallet_fields(wallet, balance=wallet.balance + amount)
-
-            create_transaction(
-                sender_wallet_id=None,
-                receiver_wallet_id=wallet.wallet_id,
-                transaction_type='DEPOSIT',
-                amount=amount,
-            )
-
             create_audit_log(request.user, 'DEPOSIT', remarks=wallet.wallet_id, ip_address=client_ip(request))
             create_notification(
                 request.user, type='TRANSACTION',
@@ -1575,22 +1547,30 @@ class SendView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        receiver_user = receiver_wallet.user
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_transfer_funds', [
+            sender_wallet.wallet_id,
+            receiver_wallet.wallet_id,
+            send_amount,
+            receive_amount,
+            rate,
+            fee,
+            txn_type,
+            data.get('category', ''),
+            transaction_id,
+        ])
+
+        sender_wallet = get_wallet_or_404(sender_wallet.wallet_id, user=request.user)
+        receiver_wallet = get_wallet_or_404(
+            receiver_wallet.wallet_id, user=receiver_user,
+        )
+        txn = rawsql.hydrate(
+            Transaction,
+            rawsql.get_transaction_by_id(transaction_id),
+        )
+
         with db_transaction.atomic():
-
-            save_wallet_fields(sender_wallet, balance=sender_wallet.balance - (send_amount + fee))
-            save_wallet_fields(receiver_wallet, balance=receiver_wallet.balance + receive_amount)
-
-            txn = create_transaction(
-                sender_wallet_id=sender_wallet.wallet_id,
-                receiver_wallet_id=receiver_wallet.wallet_id,
-                transaction_type=txn_type,
-                amount=send_amount,
-                received_amount=receive_amount,
-                exchange_rate=rate,
-                fee=fee,
-                category=data.get('category', ''),
-            )
-
             create_audit_log(
                 request.user, txn_type,
                 remarks=receiver_wallet.wallet_id, ip_address=client_ip(request),
@@ -2445,25 +2425,17 @@ class MoneyRequestAcceptView(APIView):
 
         requester_wallet = money_request.requester_wallet
 
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_accept_money_request', [
+            money_request.request_id, payer_wallet.wallet_id,
+            requester_wallet.wallet_id, amount, received_amount, rate, transaction_id,
+        ])
+        txn = rawsql.hydrate(Transaction, rawsql.get_transaction_by_id(transaction_id))
+        money_request.status = 'ACCEPTED'
+        money_request.transaction_id = transaction_id
+        money_request.responded_at = timezone.now()
+
         with db_transaction.atomic():
-
-            save_wallet_fields(payer_wallet, balance=payer_wallet.balance - amount)
-            save_wallet_fields(requester_wallet, balance=requester_wallet.balance + received_amount)
-
-            txn = create_transaction(
-                sender_wallet_id=payer_wallet.wallet_id,
-                receiver_wallet_id=requester_wallet.wallet_id,
-                transaction_type='SEND',
-                amount=amount,
-                received_amount=received_amount,
-                exchange_rate=rate,
-            )
-
-            save_money_request_fields(
-                money_request, status='ACCEPTED',
-                transaction_id=txn.transaction_id, responded_at=timezone.now(),
-            )
-
             create_audit_log(
                 request.user, 'MONEY_REQUEST_ACCEPT',
                 remarks=money_request.request_id, ip_address=client_ip(request),
@@ -2761,37 +2733,15 @@ class GroupPaymentPayShareView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        rawsql.call_procedure('sp_group_payment_share', [
+            participant_row['id'], group_payment_id, payer_wallet.wallet_id,
+            group_payment.receiver_wallet.wallet_id, share_amount, receive_amount,
+            rate, fee, transaction_id,
+        ])
+        txn = rawsql.hydrate(Transaction, rawsql.get_transaction_by_id(transaction_id))
+
         with db_transaction.atomic():
-
-            save_wallet_fields(payer_wallet, balance=payer_wallet.balance - (share_amount + fee))
-            save_wallet_fields(
-                group_payment.receiver_wallet,
-                balance=group_payment.receiver_wallet.balance + receive_amount,
-            )
-
-            txn = create_transaction(
-                sender_wallet_id=payer_wallet.wallet_id,
-                receiver_wallet_id=group_payment.receiver_wallet.wallet_id,
-                transaction_type='SEND',
-                amount=share_amount,
-                received_amount=receive_amount,
-                exchange_rate=rate,
-                fee=fee,
-                category=f"Split: {group_payment.title}",
-            )
-
-            rawsql.update_group_payment_participant(
-                participant_row['id'],
-                {
-                    'status': 'PAID',
-                    'transaction_id': txn.transaction_id,
-                    'paid_at': timezone.now(),
-                },
-            )
-
-            group_payment.refresh_status()
-            save_group_payment_fields(group_payment, status=group_payment.status)
-
             create_notification(
                 group_payment.organizer, type='TRANSACTION',
                 message=(

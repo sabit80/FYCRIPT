@@ -11,6 +11,7 @@ from .models import (
     PriceAlert, PaymentLink,
 )
 from . import db as rawsql
+from .sql_loader import load_sql
 
 User = get_user_model()
 
@@ -92,14 +93,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         value = (value or '').strip().upper()
         if value and not rawsql.exists_where(
-            User, "referral_code = %s", [value]
+            User, load_sql("users/referral_code"), [value]
         ):
             raise serializers.ValidationError("That referral code doesn't exist.")
         return value
 
     def validate_email(self, value):
 
-        if rawsql.exists_where(User, "LOWER(email) = LOWER(%s)", [value]):
+        if rawsql.exists_where(User, load_sql("users/email_exists"), [value]):
             raise serializers.ValidationError(
                 "An account with this email already exists."
             )
@@ -108,7 +109,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
 
-        if rawsql.exists_where(User, "phone = %s", [value]):
+        if rawsql.exists_where(User, load_sql("users/phone_exists"), [value]):
             raise serializers.ValidationError(
                 "An account with this phone number already exists."
             )
@@ -117,7 +118,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate_preferred_currency(self, value):
 
-        if not rawsql.exists_where(Currency, "currency_name = %s", [value]):
+        if not rawsql.exists_where(Currency, load_sql("users/currency_name_exists"), [value]):
             raise serializers.ValidationError(
                 "Unknown currency. Choose from the supported currency list."
             )
@@ -210,8 +211,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_roles(self, obj):
         rows = rawsql.fetchall(
-            "SELECT r.role_name FROM wallet_userrole ur "
-            "JOIN wallet_role r ON r.id = ur.role_id WHERE ur.user_id = %s",
+            load_sql("users/get_roles"),
             [obj.id],
         )
         return [row['role_name'] for row in rows]
@@ -325,7 +325,7 @@ class WalletSerializer(serializers.ModelSerializer):
     def validate_currency(self, value):
 
         if not rawsql.exists_where(
-            Currency, "currency_name = %s", [value.currency_name]
+            Currency, load_sql("users/currency_name_exists"), [value.currency_name]
         ):
             raise serializers.ValidationError("Unknown currency.")
 

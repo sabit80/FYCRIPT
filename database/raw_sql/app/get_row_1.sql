@@ -1,0 +1,1 @@
+-- Generic primary-key selection is defined in crud/get_row.sql.

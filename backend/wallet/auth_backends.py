@@ -12,11 +12,12 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
 from . import db as rawsql
+from .sql_loader import load_sql
 
 
 def is_blacklisted(jti):
     return bool(rawsql.scalar(
-        "SELECT 1 FROM wallet_blacklisted_token WHERE jti = %s LIMIT 1", [jti],
+        load_sql("auth/is_blacklisted"), [jti],
     ))
 
 

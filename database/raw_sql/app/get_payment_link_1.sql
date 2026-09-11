@@ -1,0 +1,4 @@
+SELECT link_id, merchant_id, receiving_wallet_id, title, amount, is_active, created_at
+FROM wallet_paymentlink
+WHERE link_id = %s
+LIMIT 1

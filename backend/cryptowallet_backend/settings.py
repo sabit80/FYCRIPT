@@ -101,8 +101,8 @@ WSGI_APPLICATION = 'cryptowallet_backend.wsgi.application'
 # =====================================================
 # DATABASE — MySQL
 #
-# Configure via environment variables (see backend/.env.example).
-# Defaults match a local `CREATE DATABASE cryptowallet_db` setup.
+# Configure via the Railway DATABASE_URL environment variable
+# (see backend/.env.example).
 # =====================================================
 
 DATABASES = {

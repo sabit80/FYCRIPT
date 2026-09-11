@@ -51,60 +51,61 @@ CryptoWallet-fullstack-mysql/
   writes an `AUDIT_LOG` row and (where relevant) a `NOTIFICATION`.
 
 
-## 1. MySQL setup
+## 1. Backend setup with Railway MySQL (Windows PowerShell)
 
-Install MySQL (8.0.16+, for `CHECK` constraint support) if you don't
-have it, then create the database and user (adjust the password to
-whatever you put in `.env`):
+From the repository root:
 
-```bash
-mysql -u root -p
-```
-
-```sql
-CREATE DATABASE cryptowallet_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'cryptowallet_user'@'localhost' IDENTIFIED BY 'CryptoWallet@123';
-GRANT ALL PRIVILEGES ON cryptowallet_db.* TO 'cryptowallet_user'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
-```
-
-You do **not** need to run `database/schema.sql` manually if you use
-Django's migrations below — that file is just a plain-SQL reference
-mirroring the same tables, kept in case you ever want to stand the
-schema up without Django.
-
-
-## 2. Backend setup
-
-```bash
+```powershell
 cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+py -m venv venv
+.\venv\Scripts\Activate.ps1
 
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
 
-cp .env.example .env
-# edit .env if your DB name/user/password/host differ
+Edit `backend/.env` and set the Railway connection string:
 
-python manage.py makemigrations wallet
+```dotenv
+DATABASE_URL=mysql://USERNAME:PASSWORD@HOST:PORT/DATABASE
+```
+
+Use the complete `DATABASE_URL` provided by Railway. Do not commit this
+value because it contains database credentials. The application reads
+`DATABASE_URL` in `cryptowallet_backend/settings.py`; no local MySQL
+server is required.
+
+Run migrations against the Railway database:
+
+```powershell
 python manage.py migrate
-
 python manage.py seed_data       # currencies, roles, starter exchange rates
 python manage.py createsuperuser # for /admin/
+```
 
+The migrations also install the MySQL stored procedures in
+`database/raw_sql/procedures/`. These procedures perform the critical
+wallet operations (transfers, deposits, withdrawals, money requests,
+group-payment shares, scheduled payments, and wallet registration).
+
+Run the backend with Daphne (recommended because the project supports
+WebSockets):
+
+```powershell
+daphne cryptowallet_backend.asgi:application
+```
+
+For normal HTTP-only development, Django's server can also be used:
+
+```powershell
 python manage.py runserver
 ```
 
 The API is now at `http://127.0.0.1:8000/api/`, admin at
 `http://127.0.0.1:8000/admin/`.
 
-**Why `makemigrations` instead of shipped migration files?** The
-models changed enough from the very first build (custom phone-based
-User, new Currency/Wallet/ExchangeRate/CryptoAddress tables) that
-hand-editing old migrations would be more fragile than generating
-fresh ones against your actual MySQL connection. It's one extra
-command, run once.
+`database/schema.sql` is a reference schema. Do not run it manually on
+Railway when using Django migrations.
 
 **Note on the default-wallet rule:** unlike PostgreSQL, MySQL has no
 conditional/partial unique index, so "exactly one default receive
@@ -119,11 +120,26 @@ From then on, update rates either in `/admin/` (Exchange Rate model)
 or by re-running `seed_data` (it's idempotent — `update_or_create`).
 
 
-## 3. Frontend setup
+## 2. Frontend setup
 
 The frontend is static — no build step. Serve `frontend/` with any
-static server (VS Code Live Server, `python -m http.server`, etc.) and
-open `index.html` / `login.html` / `create-account.html`.
+static server and open `index.html` or `login.html`.
+
+Option A — Python static server:
+
+```powershell
+# Open a second PowerShell terminal at the repository root
+cd frontend
+python -m http.server 5501
+```
+
+Open `http://127.0.0.1:5501/login.html`.
+
+Option B — VS Code Live Server:
+
+1. Open the `frontend` folder in VS Code.
+2. Right-click `login.html`.
+3. Select **Open with Live Server**.
 
 If you serve it from a different port than the ones already in
 `CORS_ALLOWED_ORIGINS` (see `.env.example`), add that origin to your
@@ -131,6 +147,22 @@ If you serve it from a different port than the ones already in
 
 `frontend/js/api.js` points at `http://127.0.0.1:8000/api` by default
 — update `API_BASE_URL` there if your backend runs elsewhere.
+
+## 3. Useful commands
+
+Run these commands from the `backend` directory with the virtual
+environment activated:
+
+```powershell
+python manage.py check
+python manage.py test wallet
+python manage.py showmigrations wallet
+python manage.py makemigrations wallet
+python manage.py migrate
+```
+
+Stop a running server with `Ctrl+C` in its terminal. Stop the frontend
+static server separately with `Ctrl+C` in its terminal.
 
 
 ## 4. Quick tour
@@ -162,22 +194,3 @@ If you serve it from a different port than the ones already in
 - Exchange rates in this build are simple static rows seeded once;
   swap `seed_data` for a scheduled job hitting a live rates API if you
   want them to move in real time.
-
-
-//RUN::
-
-cd backend
-
-.\venv\Scripts\activate
-
-daphne cryptowallet_backend.asgi:application
-
-then for frontend connection
-
-go live login.html
-
-//STOP 
-
-kill live server
-
-Ctrl +C in backend terminal

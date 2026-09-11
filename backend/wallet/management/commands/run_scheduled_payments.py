@@ -14,6 +14,7 @@ failing schedule (e.g. insufficient balance) doesn't block the rest.
 """
 
 from decimal import Decimal
+import uuid
 
 from django.core.management.base import BaseCommand
 from django.db import transaction as db_transaction
@@ -98,30 +99,9 @@ class Command(BaseCommand):
             if row['amount'] + fee > sender_wallet.balance:
                 raise ValueError("insufficient balance")
 
-            save_wallet_fields(sender_wallet, balance=sender_wallet.balance - (row['amount'] + fee))
-            save_wallet_fields(receiver_wallet, balance=receiver_wallet.balance + receive_amount)
+            transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
 
-            txn = create_transaction(
-                sender_wallet_id=sender_wallet.wallet_id,
-                receiver_wallet_id=receiver_wallet.wallet_id,
-                transaction_type=txn_type,
-                amount=row['amount'],
-                received_amount=receive_amount,
-                exchange_rate=rate,
-                fee=fee,
-            )
-
-            create_audit_log(owner, f"SCHEDULED_{txn_type}", remarks=row['schedule_id'])
-            create_notification(
-                owner, type='TRANSACTION',
-                message=(
-                    f"Scheduled payment sent: {row['amount']} "
-                    f"{sender_wallet.currency_id} ({row['note'] or txn.transaction_id})."
-                ),
-            )
-
-            # Same advance()-then-save logic as ScheduledPayment.advance(),
-            # done here as a raw UPDATE instead of hydrating + .save().
+            # Compute the next occurrence before invoking the atomic procedure.
             from datetime import timedelta
             next_run_at = row['next_run_at']
             new_status = row['status']
@@ -134,9 +114,18 @@ class Command(BaseCommand):
             else:  # ONCE
                 new_status = 'CANCELLED'
 
-            rawsql.update_by_pk(
-                ScheduledPayment, 'schedule_id', row['schedule_id'],
-                last_run_at=timezone.now(), next_run_at=next_run_at, status=new_status,
+            rawsql.call_procedure('sp_execute_scheduled_payment', [
+                row['schedule_id'], sender_wallet.wallet_id, receiver_wallet.wallet_id,
+                row['amount'], receive_amount, rate, fee, transaction_id,
+                next_run_at, new_status,
+            ])
+            create_audit_log(owner, f"SCHEDULED_{txn_type}", remarks=row['schedule_id'])
+            create_notification(
+                owner, type='TRANSACTION',
+                message=(
+                    f"Scheduled payment sent: {row['amount']} "
+                    f"{sender_wallet.currency_id} ({row['note'] or transaction_id})."
+                ),
             )
 
 
