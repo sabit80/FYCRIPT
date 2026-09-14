@@ -63,6 +63,52 @@ function isLoggedIn() {
 }
 
 
+function setAdministrativeSession(user) {
+    sessionStorage.setItem(
+        "isAdministrative",
+        user && (user.is_staff || user.is_superuser) ? "true" : "false"
+    );
+}
+
+
+function isAdministrativeSession() {
+    return sessionStorage.getItem("isAdministrative") === "true";
+}
+
+
+function enforceAdministrativeNavigation() {
+    if (!isAdministrativeSession()) {
+        return;
+    }
+
+    const currentPath = window.location.pathname.toLowerCase();
+    const adminPage = currentPath.endsWith("/pages/admin.html");
+
+    if (!adminPage) {
+        window.location.replace(
+            currentPath.endsWith("/index.html")
+                ? "pages/admin.html"
+                : "admin.html"
+        );
+        return;
+    }
+
+    document.querySelectorAll("nav a").forEach(function(link) {
+        const href = (link.getAttribute("href") || "").toLowerCase();
+        if (!href.includes("admin.html")) {
+            link.remove();
+        }
+    });
+}
+
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", enforceAdministrativeNavigation);
+} else {
+    enforceAdministrativeNavigation();
+}
+
+
 
 /* =====================================================
    REFRESH ACCESS TOKEN
@@ -302,7 +348,7 @@ function requireSession(loginPath) {
 window.CryptoWalletAPI = {
 
     request: apiRequest,
-    setTokens: setTokens,
+    setAdministrativeSession: setAdministrativeSession,
     clearTokens: clearTokens,
     isLoggedIn: isLoggedIn,
     requireLogin: requireLogin,

@@ -1,9 +1,9 @@
 /* =====================================================
    CRYPTOWALLET
-   ADMIN DASHBOARD (Django API version)
+   ADMIN MONITORING DASHBOARD (Django API version)
 
-   Every endpoint this page calls requires is_staff=True on
-   the backend (permissions.IsAdminUser) — a non-staff user
+   Every endpoint this page calls requires an admin role on
+   the backend — a non-staff user
    who somehow lands here just sees an access-denied message,
    since the real enforcement lives server-side regardless.
 ===================================================== */
@@ -46,6 +46,14 @@ const logout =
 const toast =
     document.getElementById("toast");
 
+const adminUsersList = document.getElementById("adminUsersList");
+const adminUserSearch = document.getElementById("adminUserSearch");
+const adminUserType = document.getElementById("adminUserType");
+const adminDisputesList = document.getElementById("adminDisputesList");
+const adminTransactionsList = document.getElementById("adminTransactionsList");
+const adminFeeLimits = document.getElementById("adminFeeLimits");
+const adminLiquidity = document.getElementById("adminLiquidity");
+const adminAuditEvents = document.getElementById("adminAuditEvents");
 
 
 /* =====================================================
@@ -270,6 +278,120 @@ async function loadFlaggedUsers() {
    PENDING KYC
 ===================================================== */
 
+async function loadAdminUsers() {
+    if (!adminUsersList) return;
+    const params = new URLSearchParams();
+    if (adminUserSearch && adminUserSearch.value) params.set("search", adminUserSearch.value);
+    if (adminUserType && adminUserType.value) params.set("account_type", adminUserType.value);
+    try {
+        const users = await CryptoWalletAPI.request("/admin/users/?" + params.toString());
+        adminUsersList.innerHTML = users.length ? users.map(function(user) {
+            const next = user.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+            return '<div class="list-row"><div><strong>' + escapeHTML(user.name) +
+                '</strong> <small class="hint">' + escapeHTML(user.account_type) +
+                '</small><br><small class="hint">' + escapeHTML(user.email) +
+                ' · ' + escapeHTML(user.phone) + '</small></div><div>' +
+                '<span class="hint">' + escapeHTML(user.status) + '</span> ' +
+                '<button class="admin-status-btn" data-id="' + user.id +
+                '" data-status="' + next + '">' + (next === "ACTIVE" ? "Activate" : "Suspend") +
+                '</button></div></div>';
+        }).join("") : '<p class="hint">No matching accounts.</p>';
+        document.querySelectorAll(".admin-status-btn").forEach(function(button) {
+            button.addEventListener("click", async function() {
+                try {
+                    await CryptoWalletAPI.request("/admin/users/" + button.dataset.id + "/status/", {
+                        method: "POST", body: { status: button.dataset.status }
+                    });
+                    showToast("Account status updated.");
+                    loadAdminUsers();
+                } catch (error) { showToast(error.message); }
+            });
+        });
+    } catch (error) {
+        adminUsersList.innerHTML = '<p class="hint">Couldn\'t load accounts.</p>';
+    }
+}
+
+async function loadAdminControls() {
+    if (!adminDisputesList) return;
+    try {
+        const transactions = await CryptoWalletAPI.request("/admin/transactions/?limit=10");
+        adminTransactionsList.innerHTML = transactions.length ? transactions.map(function(tx) {
+            const canReverse = tx.status === "COMPLETED" && tx.transaction_type !== "REVERSAL";
+            return '<div class="list-row"><div><strong>' + escapeHTML(tx.transaction_id) +
+                '</strong><br><small class="hint">' + escapeHTML(tx.transaction_type) +
+                ' · ' + escapeHTML(tx.amount) + ' · ' + escapeHTML(tx.date) +
+                '</small></div><div><span class="hint">' + escapeHTML(tx.status) + '</span>' +
+                (canReverse
+                    ? ' <button class="reverse-transaction-btn" data-id="' +
+                      escapeHTML(tx.transaction_id) + '">Reverse</button>'
+                    : '') +
+                '</div></div>';
+        }).join("") : '<p class="hint">No transactions recorded.</p>';
+        document.querySelectorAll(".reverse-transaction-btn").forEach(function(button) {
+            button.addEventListener("click", async function() {
+                const reason = window.prompt(
+                    "Enter the reason. The original transaction will be preserved and a compensating transaction will be created:"
+                );
+                if (!reason || !reason.trim()) return;
+                if (!window.confirm("Confirm reversal of " + button.dataset.id + "?")) return;
+                try {
+                    await CryptoWalletAPI.request(
+                        "/admin/transactions/" + button.dataset.id + "/reverse/",
+                        { method: "POST", body: { reason: reason.trim() } }
+                    );
+                    showToast("Transaction reversed and balances compensated.");
+                    loadAdminControls();
+                    loadSummary();
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
+        });
+        const disputes = await CryptoWalletAPI.request("/admin/disputes/?status=OPEN");
+        adminDisputesList.innerHTML = disputes.length ? disputes.map(function(dispute) {
+            return '<div class="list-row"><div><strong>' + escapeHTML(dispute.dispute_id) +
+                '</strong><br><small class="hint">' + escapeHTML(dispute.reason) +
+                ' · ' + escapeHTML(dispute.amount) + ' ' + escapeHTML(dispute.currency) +
+                '</small></div><button class="resolve-dispute-btn" data-id="' +
+                escapeHTML(dispute.dispute_id) + '">Resolve</button></div>';
+        }).join("") : '<p class="hint">No open disputes.</p>';
+        document.querySelectorAll(".resolve-dispute-btn").forEach(function(button) {
+            button.addEventListener("click", async function() {
+                const resolution = window.prompt("Resolution notes:") || "";
+                if (!resolution) return;
+                try {
+                    await CryptoWalletAPI.request("/admin/disputes/" + button.dataset.id + "/resolve/", {
+                        method: "POST", body: { status: "RESOLVED", resolution: resolution }
+                    });
+                    showToast("Dispute resolved.");
+                    loadAdminControls();
+                } catch (error) { showToast(error.message); }
+            });
+        });
+        const fees = await CryptoWalletAPI.request("/admin/fees-limits/");
+        adminFeeLimits.innerHTML = fees.length ? fees.map(function(config) {
+            return '<div class="list-row"><strong>' + escapeHTML(config.config_key) +
+                '</strong><span>' + escapeHTML(config.fee_percent) + '% · daily ' +
+                escapeHTML(config.daily_limit || "unlimited") + '</span></div>';
+        }).join("") : '<p class="hint">No configurable fee or limit policies.</p>';
+        const liquidity = await CryptoWalletAPI.request("/admin/liquidity/");
+        adminLiquidity.innerHTML = (liquidity.wallet_balances || []).map(function(row) {
+            return '<div class="list-row"><strong>' + escapeHTML(row.currency) +
+                '</strong><span>Customer balance ' + escapeHTML(row.customer_balance) +
+                ' · ' + escapeHTML(row.wallet_count) + ' wallets</span></div>';
+        }).join("");
+        const events = await CryptoWalletAPI.request("/admin/audit-events/?limit=20");
+        adminAuditEvents.innerHTML = events.length ? events.map(function(event) {
+            return '<div class="list-row"><div><strong>' + escapeHTML(event.action) +
+                '</strong> · ' + escapeHTML(event.resource_type) + '</div><small class="hint">' +
+                escapeHTML(event.created_at) + ' · hash ' + escapeHTML(event.event_hash) + '</small></div>';
+        }).join("") : '<p class="hint">No admin events recorded.</p>';
+    } catch (error) {
+        adminDisputesList.innerHTML = '<p class="hint">Control-plane data requires finance/operations access.</p>';
+    }
+}
+
 async function loadPendingKYC() {
 
     if (!pendingKYCList) return;
@@ -465,3 +587,8 @@ loadProfileForAvatar();
 loadSummary();
 loadFlaggedUsers();
 loadPendingKYC();
+loadAdminUsers();
+loadAdminControls();
+if (document.getElementById("adminUserRefresh")) {
+    document.getElementById("adminUserRefresh").addEventListener("click", loadAdminUsers);
+}

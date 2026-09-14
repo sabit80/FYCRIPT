@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[3] / 'database' / 'raw_sql' / 'procedure
 
 
 def install(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
     with schema_editor.connection.cursor() as cursor:
         for name in PROCEDURES:
             cursor.execute(f'DROP PROCEDURE IF EXISTS {name}')
@@ -19,6 +21,8 @@ def install(apps, schema_editor):
 
 
 def uninstall(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
     with schema_editor.connection.cursor() as cursor:
         for name in PROCEDURES:
             cursor.execute(f'DROP PROCEDURE IF EXISTS {name}')

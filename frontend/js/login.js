@@ -133,6 +133,7 @@ async function submit2FACode() {
         });
  
         CryptoWalletAPI.setTokens(data.access, data.refresh);
+        CryptoWalletAPI.setAdministrativeSession(data.user);
  
         sessionStorage.setItem("userType", "user");
         sessionStorage.setItem("userName", data.user.name);
@@ -241,6 +242,7 @@ loginForm.addEventListener("submit", async function(event) {
  
  
         CryptoWalletAPI.setTokens(data.access, data.refresh);
+        CryptoWalletAPI.setAdministrativeSession(data.user);
  
         sessionStorage.setItem("userType", "user");
         sessionStorage.setItem("userName", data.user.name);
@@ -287,6 +289,7 @@ loginForm.addEventListener("submit", async function(event) {
 guestButton.addEventListener("click", function() {
  
     CryptoWalletAPI.clearTokens();
+    sessionStorage.setItem("isAdministrative", "false");
  
     sessionStorage.setItem("userType", "guest");
     sessionStorage.removeItem("userEmail");
@@ -358,6 +361,4 @@ if (passkeyLoginButton) {
  
 }
  
-
-
 

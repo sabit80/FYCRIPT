@@ -74,10 +74,16 @@ CREATE TABLE IF NOT EXISTS wallet (
     wallet_status       VARCHAR(10) NOT NULL DEFAULT 'ACTIVE'
                          CHECK (wallet_status IN ('ACTIVE','FROZEN','CLOSED')),
     is_default_receive  BOOLEAN NOT NULL DEFAULT FALSE,
+    default_receive_user_id BIGINT
+        GENERATED ALWAYS AS (
+            CASE WHEN is_default_receive = TRUE THEN user_id ELSE NULL END
+        ) STORED,
     created_at          DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
     CONSTRAINT fk_wallet_currency FOREIGN KEY (currency_name) REFERENCES currency(currency_name)
 );
+CREATE UNIQUE INDEX uq_wallet_one_default_receive
+    ON wallet(default_receive_user_id);
 
 CREATE TABLE IF NOT EXISTS crypto_address (
     address_id      VARCHAR(40) PRIMARY KEY,
@@ -136,6 +142,78 @@ CREATE TABLE IF NOT EXISTS audit_log (
     CONSTRAINT fk_auditlog_user FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS admin_audit_event (
+    event_id        CHAR(36) PRIMARY KEY,
+    actor_id        BIGINT UNSIGNED,
+    action          VARCHAR(100) NOT NULL,
+    resource_type   VARCHAR(60) NOT NULL,
+    resource_id     VARCHAR(100) NOT NULL DEFAULT '',
+    metadata        JSON NOT NULL,
+    ip_address      VARCHAR(45),
+    created_at      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    previous_hash   CHAR(64) NOT NULL DEFAULT '',
+    event_hash      CHAR(64) NOT NULL UNIQUE,
+    CONSTRAINT fk_admin_audit_actor FOREIGN KEY (actor_id) REFERENCES `user`(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS dispute (
+    dispute_id      VARCHAR(40) PRIMARY KEY,
+    transaction_id  VARCHAR(40) NOT NULL,
+    claimant_id     BIGINT UNSIGNED NOT NULL,
+    reason          VARCHAR(255) NOT NULL,
+    amount          DECIMAL(24,8) NOT NULL,
+    currency        VARCHAR(10) NOT NULL,
+    status          VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    resolution      TEXT NOT NULL,
+    resolved_by_id  BIGINT UNSIGNED,
+    created_at      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    resolved_at     DATETIME(6),
+    CONSTRAINT fk_dispute_transaction FOREIGN KEY (transaction_id) REFERENCES transaction(transaction_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_dispute_claimant FOREIGN KEY (claimant_id) REFERENCES `user`(user_id) ON DELETE RESTRICT,
+    CONSTRAINT fk_dispute_resolver FOREIGN KEY (resolved_by_id) REFERENCES `user`(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS fee_limit_config (
+    config_key      VARCHAR(80) PRIMARY KEY,
+    scope           VARCHAR(30) NOT NULL DEFAULT 'GLOBAL',
+    fee_percent     DECIMAL(8,4) NOT NULL DEFAULT 0,
+    fixed_fee       DECIMAL(24,8) NOT NULL DEFAULT 0,
+    daily_limit     DECIMAL(24,8),
+    monthly_limit   DECIMAL(24,8),
+    max_transaction DECIMAL(24,8),
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_by_id   BIGINT UNSIGNED,
+    updated_at      DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    CONSTRAINT fk_fee_limit_actor FOREIGN KEY (updated_by_id) REFERENCES `user`(user_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS wallet_reserve_snapshot (
+    id                      BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    currency                VARCHAR(10) NOT NULL,
+    total_customer_balance  DECIMAL(30,8) NOT NULL DEFAULT 0,
+    reserve_balance         DECIMAL(30,8) NOT NULL DEFAULT 0,
+    available_liquidity     DECIMAL(30,8) NOT NULL DEFAULT 0,
+    captured_at             DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    captured_by_id          BIGINT UNSIGNED,
+    CONSTRAINT fk_reserve_actor FOREIGN KEY (captured_by_id) REFERENCES `user`(user_id) ON DELETE SET NULL
+);
+
+DELIMITER //
+CREATE TRIGGER trg_admin_audit_no_update
+BEFORE UPDATE ON admin_audit_event
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'admin audit events are immutable';
+END //
+CREATE TRIGGER trg_admin_audit_no_delete
+BEFORE DELETE ON admin_audit_event
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'admin audit events are immutable';
+END //
+DELIMITER ;
+
 CREATE TABLE IF NOT EXISTS login_session (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id     BIGINT UNSIGNED NOT NULL,
@@ -159,26 +237,21 @@ INSERT IGNORE INTO currency (currency_name, type, symbol) VALUES
     ('USD','FIAT','$'), ('BDT','FIAT','৳'), ('EUR','FIAT','€'), ('GBP','FIAT','£'),
     ('BTC','CRYPTO','₿'), ('ETH','CRYPTO','Ξ'), ('USDT','CRYPTO','₮');
 
-INSERT IGNORE INTO role (role_name) VALUES ('USER'), ('ADMIN');
+INSERT IGNORE INTO role (role_name) VALUES
+    ('USER'), ('ADMIN'), ('OPERATIONS'), ('SUPPORT'), ('COMPLIANCE'), ('FINANCE');
 
 -- =====================================================
--- 3. TRIGGERS  -- intentionally NOT included
+-- 3. TRIGGERS
 -- =====================================================
 -- An earlier version of this file had three triggers here:
 --   - trg_wallet_single_default_insert / _update
 --   - trg_wallet_balance_audit
 --   - trg_transaction_notify
 --
--- All three duplicated logic that already lives in the Django app:
---   - "one default-receive wallet per user" is already enforced in
---     Wallet.save() (wallet/models.py, line ~228).
---   - AuditLog / Notification rows are already created explicitly in
---     FundWalletView, SendView and ExchangeView (wallet/views.py).
---
--- Running those triggers alongside the existing Django code would
--- create duplicate notification/audit rows for every transaction.
--- They are left out here on purpose so this file is safe to run
--- against the project's real database without changing its behavior.
+-- Default-wallet validation triggers and the atomic switch procedure are
+-- installed by backend/wallet/migrations/0010_wallet_default_database_rules.py.
+-- Audit and notification triggers are intentionally not used because those
+-- rows are created explicitly for user-facing actions.
 -- The procedures, function, views and event below are additive only:
 -- Django never calls them automatically, so they can't create
 -- duplicates or side effects on their own.

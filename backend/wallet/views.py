@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import io
+import json
 import secrets
 import uuid
 from decimal import Decimal
@@ -48,9 +50,82 @@ from .serializers import (
     SavingsGoalCreateSerializer, SavingsGoalTopUpSerializer,
     PriceAlertSerializer, PaymentLinkSerializer, PaymentLinkPaySerializer,
     BankDepositSerializer, BankWithdrawSerializer,
+    AdminUserStatusSerializer, AdminRoleSerializer,
+    AdminTransactionActionSerializer, AdminDisputeCreateSerializer,
+    AdminDisputeResolutionSerializer, FeeLimitConfigSerializer,
+    ReserveSnapshotSerializer, AdminTransactionReversalSerializer,
 )
 
 User = get_user_model()
+
+
+class AdminRBACPermission(permissions.BasePermission):
+    """Staff remains a full-access compatibility role; non-staff operators
+    must have an explicit control-plane role."""
+
+    required_roles = {'ADMIN'}
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if user.is_superuser or user.is_staff:
+            return True
+        role_names = {
+            row['role_name'] for row in rawsql.admin_user_roles(user.id)
+        }
+        return bool(role_names.intersection(self.required_roles))
+
+
+class AdminOperationsPermission(AdminRBACPermission):
+    required_roles = {'ADMIN', 'OPERATIONS', 'SUPPORT', 'COMPLIANCE'}
+
+
+class AdminFinancePermission(AdminRBACPermission):
+    required_roles = {'ADMIN', 'FINANCE'}
+
+
+class NonAdministrativeUserPermission(permissions.BasePermission):
+    """Wallet and money-movement operations are for customer accounts only.
+
+    Staff and superuser accounts are deliberately monitoring-only. Admin
+    access is provided by the control-plane permissions above.
+    """
+
+    message = "Administrative accounts are monitoring-only and cannot use wallet operations."
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and not (user.is_staff or user.is_superuser)
+        )
+
+
+def create_admin_audit_event(request, action, resource_type, resource_id='', metadata=None):
+    """Write a tamper-evident audit event; callers never update/delete it."""
+    now = timezone.now()
+    event_id = uuid.uuid4()
+    previous_hash = rawsql.admin_last_audit_hash()
+    payload = {
+        'event_id': str(event_id), 'actor_id': request.user.id,
+        'action': action, 'resource_type': resource_type,
+        'resource_id': str(resource_id), 'metadata': metadata or {},
+        'ip_address': client_ip(request), 'created_at': now.isoformat(),
+        'previous_hash': previous_hash,
+    }
+    event_hash = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str).encode()
+    ).hexdigest()
+    rawsql.admin_create_audit_event({
+        'event_id': event_id, 'actor_id': request.user.id,
+        'action': action, 'resource_type': resource_type,
+        'resource_id': str(resource_id), 'metadata': json.dumps(metadata or {}, default=str),
+        'ip_address': client_ip(request), 'created_at': now,
+        'previous_hash': previous_hash, 'event_hash': event_hash,
+    })
+    return event_hash
 
 
 # =====================================================
@@ -268,9 +343,36 @@ def convert_currency(amount, from_currency, to_currency):
 # FEE / LIMIT / FRAUD HELPERS  (used by SendView)
 # =====================================================
 
-def calculate_send_fee(amount):
+def get_send_policy(tier='UNVERIFIED'):
+    """Read live controls, retaining safe defaults during rollout."""
+    fallback = {
+        'fee_percent': SEND_FEE_PERCENT,
+        'fixed_fee': Decimal('0'),
+        'daily_limit': SEND_LIMITS_USD[tier]['daily'],
+        'monthly_limit': SEND_LIMITS_USD[tier]['monthly'],
+        'max_transaction': None,
+    }
+    try:
+        row = rawsql.get_active_fee_config(f'SEND_{tier}')
+        if row is None:
+            row = rawsql.get_active_fee_config('SEND')
+        if row:
+            for key in ('fee_percent', 'fixed_fee', 'daily_limit',
+                        'monthly_limit', 'max_transaction'):
+                if row.get(key) is not None:
+                    fallback[key] = Decimal(str(row[key]))
+    except Exception:
+        # A partially rolled out policy table must never block transfers.
+        pass
+    return fallback
+
+
+def calculate_send_fee(amount, tier='UNVERIFIED'):
     """Flat percentage fee, in the sending wallet's own currency."""
-    return (amount * SEND_FEE_PERCENT / Decimal("100")).quantize(Decimal("0.00000001"))
+    policy = get_send_policy(tier)
+    return (
+        amount * policy['fee_percent'] / Decimal("100") + policy['fixed_fee']
+    ).quantize(Decimal("0.00000001"))
 
 
 def usd_equivalent(amount, currency_id):
@@ -289,8 +391,18 @@ def check_send_limit(user, sender_wallet, send_amount):
     """
 
     tier = user.kyc_tier()
-    limits = SEND_LIMITS_USD[tier]
+    policy = get_send_policy(tier)
+    limits = {
+        'daily': policy['daily_limit'],
+        'monthly': policy['monthly_limit'],
+    }
     amount_usd = usd_equivalent(send_amount, sender_wallet.currency_id)
+
+    if policy['max_transaction'] is not None and amount_usd > policy['max_transaction']:
+        raise ValidationError({
+            "detail": f"This exceeds the maximum transaction limit of "
+                      f"{policy['max_transaction']} USD."
+        })
 
     now = timezone.now()
     day_start = now - timezone.timedelta(hours=24)
@@ -422,6 +534,11 @@ def tokens_for_user(user):
 
 
 def create_wallet_for_user(user, currency_name, is_default_receive=False):
+
+    if user.is_staff or user.is_superuser:
+        raise ValidationError(
+            "Administrative accounts cannot own or create wallets."
+        )
 
     wallet_id = f"WAL-{uuid.uuid4().hex[:10].upper()}"
 
@@ -563,6 +680,11 @@ class LoginView(APIView):
             return Response(
                 {"detail": "Invalid email or password."},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+        if user.status != 'ACTIVE' or not user.is_active:
+            return Response(
+                {"detail": "This account is not active. Contact support."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # ---------------------------------------------
@@ -953,6 +1075,7 @@ class SetTransactionPinView(APIView):
 
 class BankAccountListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = BankAccountSerializer
 
     def get_queryset(self):
@@ -981,6 +1104,7 @@ class BankAccountListCreateView(generics.ListCreateAPIView):
 
 class BankAccountDeleteView(generics.DestroyAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = BankAccountSerializer
 
     def get_queryset(self):
@@ -994,6 +1118,8 @@ class BankAccountDeleteView(generics.DestroyAPIView):
 class BankAccountDepositView(APIView):
     """Move money FROM a linked bank account INTO one of the user's
     wallets (a simulated bank deposit — no real bank API involved)."""
+
+    permission_classes = [NonAdministrativeUserPermission]
 
     def post(self, request, pk):
 
@@ -1054,6 +1180,8 @@ class BankAccountDepositView(APIView):
 class BankAccountWithdrawView(APIView):
     """Move money FROM one of the user's wallets INTO a linked bank
     account (a simulated withdrawal — no real bank API involved)."""
+
+    permission_classes = [NonAdministrativeUserPermission]
 
     def post(self, request, pk):
 
@@ -1181,6 +1309,7 @@ class KYCView(APIView):
 
 class WalletListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = WalletSerializer
     lookup_field = 'wallet_id'
 
@@ -1215,6 +1344,7 @@ class WalletListCreateView(generics.ListCreateAPIView):
 
 class WalletDeleteView(generics.DestroyAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = WalletSerializer
     lookup_field = 'wallet_id'
 
@@ -1248,6 +1378,8 @@ class WalletFreezeToggleView(APIView):
     receive new deposits either. The default receive wallet can't be
     frozen — that would silently break incoming transfers."""
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, wallet_id):
 
         try:
@@ -1280,6 +1412,8 @@ class WalletFreezeToggleView(APIView):
 
 class WalletSetDefaultView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, wallet_id):
 
         try:
@@ -1295,8 +1429,8 @@ class WalletSetDefaultView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        rawsql.unset_other_default_wallets(request.user.id, except_wallet_id=wallet.wallet_id)
-        save_wallet_fields(wallet, is_default_receive=True)
+        rawsql.set_default_wallet(request.user.id, wallet.wallet_id)
+        wallet.is_default_receive = True
 
         create_audit_log(
             request.user, 'WALLET_SET_DEFAULT', remarks=wallet.wallet_id,
@@ -1397,6 +1531,8 @@ class FundWalletView(APIView):
     Manual top-up of a wallet (e.g. cash-in / bank deposit).
     """
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, wallet_id):
 
         try:
@@ -1440,6 +1576,7 @@ class FundWalletView(APIView):
 
 class SendView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = 'send'
 
@@ -1538,12 +1675,14 @@ class SendView(APIView):
 
         # Flat percentage fee on external SENDs only; SHIFTs between a
         # user's own wallets stay fee-free.
-        fee = calculate_send_fee(send_amount) if txn_type == 'SEND' else Decimal("0")
+        tier = request.user.kyc_tier()
+        fee = calculate_send_fee(send_amount, tier) if txn_type == 'SEND' else Decimal("0")
+        policy = get_send_policy(tier)
 
         if send_amount + fee > sender_wallet.balance:
             return Response(
                 {"detail": f"Insufficient balance to cover amount plus the "
-                           f"{SEND_FEE_PERCENT}% fee ({fee} {sender_wallet.currency_id})."},
+                           f"{policy['fee_percent']}% fee ({fee} {sender_wallet.currency_id})."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -1652,6 +1791,8 @@ class SendView(APIView):
 # =====================================================
 
 class ExchangeView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
 
     def post(self, request):
 
@@ -1928,7 +2069,7 @@ class AdminKYCListView(generics.ListAPIView):
     """
 
     serializer_class = AdminKYCSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def get_queryset(self):
         status_filter = (self.request.query_params.get('status') or 'PENDING').upper()
@@ -1946,7 +2087,7 @@ class AdminKYCListView(generics.ListAPIView):
 
 class AdminKYCApproveView(APIView):
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def post(self, request, pk):
 
@@ -1988,7 +2129,7 @@ class AdminKYCApproveView(APIView):
 
 class AdminKYCRejectView(APIView):
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def post(self, request, pk):
 
@@ -2039,7 +2180,7 @@ class AdminAnalyticsSummaryView(APIView):
     """Backs the admin.html analytics dashboard: headline numbers +
     a 14-day daily transaction-volume series for the chart."""
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def get(self, request):
 
@@ -2082,7 +2223,7 @@ class AdminFlaggedUsersView(generics.ListAPIView):
     """List of accounts currently flagged for fraud review."""
 
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def get_queryset(self):
         rows = rawsql.list_flagged_users()
@@ -2092,7 +2233,7 @@ class AdminFlaggedUsersView(generics.ListAPIView):
 class AdminClearFlagView(APIView):
     """Admin clears a fraud flag after reviewing the account."""
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def post(self, request, pk):
 
@@ -2117,12 +2258,319 @@ class AdminClearFlagView(APIView):
         return Response(UserSerializer(user).data)
 
 
+class AdminUserListView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def get(self, request):
+        rows = rawsql.admin_list_users(
+            status_filter=request.query_params.get('status'),
+            account_type=request.query_params.get('account_type'),
+            search=request.query_params.get('search'),
+            limit=request.query_params.get('limit', 100),
+            offset=request.query_params.get('offset', 0),
+        )
+        for row in rows:
+            row['roles'] = [
+                item['role_name'] for item in rawsql.admin_user_roles(row['id'])
+            ]
+        return Response(rows)
+
+
+class AdminMerchantListView(AdminUserListView):
+    def get(self, request):
+        rows = rawsql.admin_list_users(
+            status_filter=request.query_params.get('status'),
+            account_type='MERCHANT',
+            search=request.query_params.get('search'),
+            limit=request.query_params.get('limit', 100),
+            offset=request.query_params.get('offset', 0),
+        )
+        for row in rows:
+            row['roles'] = [
+                item['role_name'] for item in rawsql.admin_user_roles(row['id'])
+            ]
+        return Response(rows)
+
+
+class AdminUserStatusView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def post(self, request, pk):
+        serializer = AdminUserStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_row = rawsql.get_user_by_id(pk)
+        if user_row is None:
+            return Response({"detail": "User not found."}, status=404)
+        if pk == request.user.id and serializer.validated_data['status'] != 'ACTIVE':
+            return Response(
+                {"detail": "An administrator cannot suspend or close their own account."},
+                status=400,
+            )
+        new_status = serializer.validated_data['status']
+        changed = rawsql.admin_update_user(pk, {
+            'status': new_status,
+            'is_active': new_status == 'ACTIVE',
+            'is_flagged': new_status != 'ACTIVE',
+            'flagged_reason': serializer.validated_data.get('reason', ''),
+        })
+        if not changed:
+            return Response({"detail": "User status was not changed."}, status=400)
+        create_admin_audit_event(
+            request, 'USER_STATUS_CHANGED', 'user', pk,
+            {'status': new_status, 'reason': serializer.validated_data.get('reason', '')},
+        )
+        user = hydrate_user(rawsql.get_user_by_id(pk))
+        return Response(UserSerializer(user).data)
+
+
+class AdminUserRolesView(APIView):
+    permission_classes = [AdminRBACPermission]
+
+    def get(self, request, pk):
+        if rawsql.get_user_by_id(pk) is None:
+            return Response({"detail": "User not found."}, status=404)
+        return Response(rawsql.admin_user_roles(pk))
+
+    def post(self, request, pk):
+        serializer = AdminRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if rawsql.get_user_by_id(pk) is None:
+            return Response({"detail": "User not found."}, status=404)
+        role_name = serializer.validated_data['role_name'].upper()
+        role = rawsql.admin_get_role(role_name)
+        if role is None:
+            return Response({"detail": "Unknown role."}, status=400)
+        action = serializer.validated_data['action']
+        try:
+            if action == 'assign':
+                rawsql.admin_assign_role(pk, role['id'], timezone.now())
+            else:
+                rawsql.admin_remove_role(pk, role['id'])
+        except Exception:
+            return Response({"detail": "Role assignment already exists."}, status=409)
+        create_admin_audit_event(
+            request, f'USER_ROLE_{action.upper()}', 'user', pk,
+            {'role': role_name},
+        )
+        return Response(rawsql.admin_user_roles(pk))
+
+
+class AdminTransactionListView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def get(self, request):
+        return Response(rawsql.admin_list_transactions(
+            request.query_params.get('status'),
+            request.query_params.get('transaction_type'),
+            request.query_params.get('limit', 100),
+            request.query_params.get('offset', 0),
+        ))
+
+
+class AdminTransactionActionView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def post(self, request, transaction_id):
+        serializer = AdminTransactionActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        transaction_row = rawsql.get_transaction_by_id(transaction_id)
+        if transaction_row is None:
+            return Response({"detail": "Transaction not found."}, status=404)
+        rawsql.admin_update_transaction(
+            transaction_id, serializer.validated_data['status'],
+        )
+        create_admin_audit_event(
+            request, 'TRANSACTION_STATUS_CHANGED', 'transaction', transaction_id,
+            {'status': serializer.validated_data['status'],
+             'reason': serializer.validated_data.get('reason', '')},
+        )
+        return Response(rawsql.get_transaction_by_id(transaction_id))
+
+
+class AdminTransactionReverseView(APIView):
+    permission_classes = [AdminFinancePermission]
+
+    def post(self, request, transaction_id):
+        serializer = AdminTransactionReversalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        original = rawsql.get_transaction_by_id(transaction_id)
+        if original is None:
+            return Response({"detail": "Transaction not found."}, status=404)
+        if original['status'] != 'COMPLETED':
+            return Response(
+                {"detail": "Only completed transactions can be reversed."},
+                status=400,
+            )
+        reversal_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        try:
+            rawsql.call_procedure('sp_reverse_transaction', [
+                transaction_id,
+                reversal_id,
+                serializer.validated_data['reason'],
+            ])
+        except Exception as exc:
+            message = str(exc)
+            if 'already reversed' in message.lower():
+                return Response({"detail": "This transaction was already reversed."}, status=409)
+            return Response(
+                {"detail": "Transaction could not be reversed.", "error": message},
+                status=400,
+            )
+        create_admin_audit_event(
+            request, 'TRANSACTION_REVERSED', 'transaction', transaction_id,
+            {'reversal_id': reversal_id, 'reason': serializer.validated_data['reason']},
+        )
+        return Response({
+            'original_transaction': rawsql.get_transaction_by_id(transaction_id),
+            'reversal_transaction': rawsql.get_transaction_by_id(reversal_id),
+        }, status=201)
+
+
+class AdminDisputeListCreateView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def get(self, request):
+        return Response(rawsql.admin_list_disputes(
+            request.query_params.get('status'),
+            request.query_params.get('limit', 100),
+            request.query_params.get('offset', 0),
+        ))
+
+    def post(self, request):
+        serializer = AdminDisputeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        if rawsql.get_transaction_by_id(data['transaction_id']) is None:
+            return Response({"detail": "Transaction not found."}, status=404)
+        if rawsql.get_user_by_id(data['claimant_id']) is None:
+            return Response({"detail": "Claimant not found."}, status=404)
+        dispute_id = f"DSP-{uuid.uuid4().hex[:12].upper()}"
+        now = timezone.now()
+        rawsql.admin_create_dispute({
+            'dispute_id': dispute_id, 'transaction_id': data['transaction_id'],
+            'claimant_id': data['claimant_id'], 'reason': data['reason'],
+            'amount': data['amount'], 'currency': data['currency'],
+            'created_at': now,
+        })
+        create_admin_audit_event(
+            request, 'DISPUTE_CREATED', 'dispute', dispute_id,
+            {'transaction_id': data['transaction_id']},
+        )
+        return Response(rawsql.admin_get_dispute(dispute_id), status=201)
+
+
+class AdminDisputeResolveView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def post(self, request, dispute_id):
+        serializer = AdminDisputeResolutionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if rawsql.admin_get_dispute(dispute_id) is None:
+            return Response({"detail": "Dispute not found."}, status=404)
+        now = timezone.now()
+        rawsql.admin_resolve_dispute(
+            dispute_id, serializer.validated_data['status'],
+            serializer.validated_data['resolution'], request.user.id, now,
+        )
+        create_admin_audit_event(
+            request, 'DISPUTE_RESOLVED', 'dispute', dispute_id,
+            {'status': serializer.validated_data['status']},
+        )
+        return Response(rawsql.admin_get_dispute(dispute_id))
+
+
+class AdminFeeLimitConfigView(APIView):
+    permission_classes = [AdminFinancePermission]
+
+    def get(self, request):
+        return Response(rawsql.admin_list_fee_configs())
+
+    def post(self, request):
+        serializer = FeeLimitConfigSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        config_key = data.pop('config_key')
+        rawsql.admin_upsert_fee_config(
+            config_key, data, request.user.id, timezone.now(),
+        )
+        create_admin_audit_event(
+            request, 'FEE_LIMIT_CHANGED', 'fee_limit', config_key, data,
+        )
+        return Response(next(
+            row for row in rawsql.admin_list_fee_configs()
+            if row['config_key'] == config_key
+        ))
+
+
+class AdminLiquidityView(APIView):
+    permission_classes = [AdminFinancePermission]
+
+    def get(self, request):
+        return Response({
+            'wallet_balances': rawsql.admin_liquidity_summary(),
+            'snapshots': rawsql.admin_list_reserve_snapshots(
+                request.query_params.get('currency'),
+                request.query_params.get('limit', 100),
+            ),
+        })
+
+    def post(self, request):
+        serializer = ReserveSnapshotSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        balance_row = next(
+            (row for row in rawsql.admin_liquidity_summary()
+             if row['currency'] == data['currency']), None,
+        )
+        customer_balance = balance_row['customer_balance'] if balance_row else Decimal('0')
+        snapshot_id = rawsql.admin_create_reserve_snapshot({
+            'currency': data['currency'],
+            'total_customer_balance': customer_balance,
+            'reserve_balance': data['reserve_balance'],
+            'available_liquidity': data['reserve_balance'] - customer_balance,
+            'captured_at': timezone.now(),
+            'captured_by_id': request.user.id,
+        })
+        create_admin_audit_event(
+            request, 'LIQUIDITY_SNAPSHOT_CREATED', 'reserve', data['currency'],
+            {'reserve_balance': str(data['reserve_balance'])},
+        )
+        return Response({'id': snapshot_id}, status=201)
+
+
+class AdminAuditEventListView(APIView):
+    permission_classes = [AdminRBACPermission]
+
+    def get(self, request):
+        return Response(rawsql.admin_list_audit_events(
+            request.query_params.get('limit', 100),
+            request.query_params.get('offset', 0),
+        ))
+
+
+class AdminAnalyticsReportView(APIView):
+    permission_classes = [AdminOperationsPermission]
+
+    def get(self, request):
+        since = request.query_params.get('since')
+        parsed_since = None
+        if since:
+            try:
+                parsed_since = timezone.datetime.fromisoformat(since)
+            except ValueError:
+                return Response({"detail": "since must be an ISO-8601 date."}, status=400)
+        report = rawsql.admin_reporting_summary(parsed_since)
+        return Response({key: str(value) if key != 'transaction_count' and key != 'disputes_open' else value
+                         for key, value in report.items()})
+
+
 # =====================================================
 # SCHEDULED / RECURRING PAYMENTS
 # =====================================================
 
 class ScheduledPaymentListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = ScheduledPaymentSerializer
 
     def get_queryset(self):
@@ -2199,6 +2647,8 @@ class ScheduledPaymentListCreateView(generics.ListCreateAPIView):
 
 class ScheduledPaymentCancelView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, schedule_id):
 
         row = rawsql.get_scheduled_payment(schedule_id, request.user.id)
@@ -2216,6 +2666,8 @@ class ScheduledPaymentCancelView(APIView):
 
 
 class ScheduledPaymentPauseToggleView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
 
     def post(self, request, schedule_id):
 
@@ -2286,6 +2738,8 @@ def save_money_request_fields(money_request, **fields):
 
 
 class MoneyRequestListCreateView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
 
     def get(self, request):
 
@@ -2374,6 +2828,8 @@ class MoneyRequestListCreateView(APIView):
 
 class MoneyRequestAcceptView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, pk):
 
         try:
@@ -2457,6 +2913,8 @@ class MoneyRequestAcceptView(APIView):
 
 class MoneyRequestDeclineView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, pk):
 
         try:
@@ -2496,6 +2954,8 @@ class MoneyRequestDeclineView(APIView):
 # =====================================================
 
 class AccountTypeUpdateView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
     """Switch between PERSONAL and MERCHANT. Merchant accounts can
     create PaymentLinks (see PaymentLinkListCreateView)."""
 
@@ -2519,6 +2979,8 @@ class AccountTypeUpdateView(APIView):
 
 
 class DeactivateAccountView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
     """
     Soft-deletes the account: status -> CLOSED, is_active -> False
     (so they can no longer authenticate), all wallets frozen. Data
@@ -2600,6 +3062,7 @@ class GroupPaymentListCreateView(generics.ListCreateAPIView):
             charged the whole amount up front.
     """
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = GroupPaymentSerializer
 
     def get_queryset(self):
@@ -2779,6 +3242,7 @@ def save_savings_goal_fields(goal, **fields):
 
 class SavingsGoalListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = SavingsGoalSerializer
 
     def get_queryset(self):
@@ -2822,6 +3286,8 @@ class SavingsGoalListCreateView(generics.ListCreateAPIView):
 
 
 class SavingsGoalTopUpView(APIView):
+
+    permission_classes = [NonAdministrativeUserPermission]
     """Manual, one-off top-up into a savings goal's wallet from
     another of the user's own wallets (a plain SHIFT, fee-free)."""
 
@@ -2874,6 +3340,8 @@ class SavingsGoalTopUpView(APIView):
 
 class SavingsGoalDeactivateView(APIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
+
     def post(self, request, goal_id):
 
         try:
@@ -2899,6 +3367,7 @@ class SavingsGoalDeactivateView(APIView):
 
 class PriceAlertListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = PriceAlertSerializer
 
     def get_queryset(self):
@@ -2924,6 +3393,7 @@ class PriceAlertListCreateView(generics.ListCreateAPIView):
 
 class PriceAlertDeleteView(generics.DestroyAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = PriceAlertSerializer
     lookup_field = 'alert_id'
 
@@ -2949,11 +3419,13 @@ def get_payment_link_or_404(link_id, active_only=False):
         raise PaymentLink.DoesNotExist
     merchant = hydrate_user(rawsql.get_user_by_id(row['merchant_id']))
     receiving_wallet = get_wallet_or_404(row['receiving_wallet_id'])
-    return rawsql.hydrate(PaymentLink, row, merchant=merchant, receiving_wallet=receiving_wallet)
+    return rawsql.hydrate(    PaymentLink,
+    AdminAuditEvent, Dispute, FeeLimitConfig, WalletReserveSnapshot, row, merchant=merchant, receiving_wallet=receiving_wallet)
 
 
 class PaymentLinkListCreateView(generics.ListCreateAPIView):
 
+    permission_classes = [NonAdministrativeUserPermission]
     serializer_class = PaymentLinkSerializer
 
     def get_queryset(self):
@@ -3162,7 +3634,7 @@ class TransactionExportPDFView(APIView):
 
 class AdminRateLimitStatusView(APIView):
 
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [AdminOperationsPermission]
 
     def get(self, request):
 
@@ -3176,3 +3648,4 @@ class AdminRateLimitStatusView(APIView):
                 "to inspect/reset individual users' throttle windows here."
             ),
         })
+    permission_classes = [NonAdministrativeUserPermission]

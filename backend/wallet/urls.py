@@ -41,6 +41,29 @@ urlpatterns = [
     path('admin/analytics/summary/', views.AdminAnalyticsSummaryView.as_view()),
     path('admin/flagged-users/', views.AdminFlaggedUsersView.as_view()),
     path('admin/flagged-users/<int:pk>/clear/', views.AdminClearFlagView.as_view()),
+    path('admin/users/', views.AdminUserListView.as_view()),
+    path('admin/merchants/', views.AdminMerchantListView.as_view()),
+    path('admin/users/<int:pk>/status/', views.AdminUserStatusView.as_view()),
+    path('admin/merchants/<int:pk>/status/', views.AdminUserStatusView.as_view()),
+    path('admin/users/<int:pk>/roles/', views.AdminUserRolesView.as_view()),
+    path('admin/transactions/', views.AdminTransactionListView.as_view()),
+    path(
+        'admin/transactions/<str:transaction_id>/action/',
+        views.AdminTransactionActionView.as_view(),
+    ),
+    path(
+        'admin/transactions/<str:transaction_id>/reverse/',
+        views.AdminTransactionReverseView.as_view(),
+    ),
+    path('admin/disputes/', views.AdminDisputeListCreateView.as_view()),
+    path(
+        'admin/disputes/<str:dispute_id>/resolve/',
+        views.AdminDisputeResolveView.as_view(),
+    ),
+    path('admin/fees-limits/', views.AdminFeeLimitConfigView.as_view()),
+    path('admin/liquidity/', views.AdminLiquidityView.as_view()),
+    path('admin/audit-events/', views.AdminAuditEventListView.as_view()),
+    path('admin/analytics/report/', views.AdminAnalyticsReportView.as_view()),
 
     # CURRENCIES / RATES
     path('currencies/', views.CurrencyListView.as_view()),

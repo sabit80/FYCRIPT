@@ -260,10 +260,9 @@ class Currency(models.Model):
 # =====================================================
 # WALLET  (ERD: WALLET)  -- USER "Owns" WALLET (1..*)
 #
-# Every user gets exactly one default receive wallet created at
-# signup (the bKash-style "send to my number" target). Beyond
-# that a user may open as many additional fiat/crypto wallets as
-# they like.
+# Customer accounts get one default receive wallet at signup (the
+# bKash-style "send to my number" target). Administrative accounts are
+# monitoring-only and cannot own or create wallets.
 # =====================================================
 
 WALLET_STATUS_CHOICES = [
@@ -302,14 +301,8 @@ class Wallet(models.Model):
         # WHERE condition), so that rule is enforced in save() below instead.
 
     def save(self, *args, **kwargs):
-        # NOTE: this override only fills in defaults for a not-yet-saved
-        # instance and, historically, unset any other default-receive
-        # wallet via the ORM. All actual reads/writes of Wallet rows now
-        # go through wallet/db.py (see WalletListCreateView etc in
-        # views.py) instead of calling this method — kept here only so
-        # nothing else that still constructs a bare `Wallet(...)` and
-        # calls `.save()` breaks; the ORM `.filter().update()` call that
-        # used to live here has been removed (see db.unset_other_default_wallets).
+        # Default-wallet consistency is enforced by the database trigger,
+        # unique key, and sp_set_default_wallet procedure.
 
         if not self.wallet_id:
             self.wallet_id = f"WAL-{uuid.uuid4().hex[:10].upper()}"
@@ -389,12 +382,14 @@ TRANSACTION_TYPE_CHOICES = [
     ('EXCHANGE', 'Exchange'),  # currency conversion between own wallets
     ('DEPOSIT', 'Deposit'),    # top-up / fund a wallet (incl. from a bank account)
     ('WITHDRAW', 'Withdraw'),  # wallet -> linked bank account
+    ('REVERSAL', 'Reversal'),  # compensating transaction created by an admin
 ]
 
 TRANSACTION_STATUS_CHOICES = [
     ('PENDING', 'Pending'),
     ('COMPLETED', 'Completed'),
     ('FAILED', 'Failed'),
+    ('REVERSED', 'Reversed'),
 ]
 
 
@@ -496,6 +491,117 @@ class AuditLog(models.Model):
     def __str__(self):
         user_label = self.user.phone if self.user else 'system'
         return f"AuditLog({self.action}) - {user_label}"
+
+
+class AdminAuditEvent(models.Model):
+    """Append-only, structured audit trail for privileged operations."""
+
+    event_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='admin_audit_events',
+    )
+    action = models.CharField(max_length=100)
+    resource_type = models.CharField(max_length=60)
+    resource_id = models.CharField(max_length=100, blank=True, default='')
+    metadata = models.JSONField(default=dict, blank=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    previous_hash = models.CharField(max_length=64, blank=True, default='')
+    event_hash = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __init__(self, *args, **kwargs):
+        loaded_event = 'event_id' in kwargs
+        super().__init__(*args, **kwargs)
+        if loaded_event:
+            self._state.adding = False
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError("Admin audit events are immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Admin audit events cannot be deleted")
+
+
+DISPUTE_STATUS_CHOICES = [
+    ('OPEN', 'Open'),
+    ('UNDER_REVIEW', 'Under review'),
+    ('RESOLVED', 'Resolved'),
+    ('REJECTED', 'Rejected'),
+    ('CHARGEBACK', 'Chargeback'),
+]
+
+
+class Dispute(models.Model):
+    dispute_id = models.CharField(max_length=40, primary_key=True, editable=False)
+    transaction = models.ForeignKey(
+        Transaction, on_delete=models.PROTECT, related_name='disputes',
+    )
+    claimant = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name='disputes',
+    )
+    reason = models.CharField(max_length=255)
+    amount = models.DecimalField(max_digits=24, decimal_places=8)
+    currency = models.CharField(max_length=10)
+    status = models.CharField(
+        max_length=20, choices=DISPUTE_STATUS_CHOICES, default='OPEN',
+    )
+    resolution = models.TextField(blank=True, default='')
+    resolved_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resolved_disputes',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if not self.dispute_id:
+            self.dispute_id = f"DSP-{uuid.uuid4().hex[:12].upper()}"
+        return super().save(*args, **kwargs)
+
+
+class FeeLimitConfig(models.Model):
+    config_key = models.CharField(max_length=80, primary_key=True)
+    scope = models.CharField(max_length=30, default='GLOBAL')
+    fee_percent = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    fixed_fee = models.DecimalField(max_digits=24, decimal_places=8, default=0)
+    daily_limit = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
+    monthly_limit = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
+    max_transaction = models.DecimalField(max_digits=24, decimal_places=8, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='updated_fee_limit_configs',
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['scope', 'config_key']
+
+
+class WalletReserveSnapshot(models.Model):
+    currency = models.CharField(max_length=10)
+    total_customer_balance = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    reserve_balance = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    available_liquidity = models.DecimalField(max_digits=30, decimal_places=8, default=0)
+    captured_at = models.DateTimeField(auto_now_add=True)
+    captured_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='liquidity_snapshots',
+    )
+
+    class Meta:
+        ordering = ['-captured_at']
+        indexes = [models.Index(fields=['currency', '-captured_at'])]
 
 
 # =====================================================

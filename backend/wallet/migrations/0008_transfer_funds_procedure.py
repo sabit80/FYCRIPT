@@ -13,6 +13,8 @@ PROCEDURE_SQL_PATH = (
 
 
 def install_transfer_procedure(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
     with PROCEDURE_SQL_PATH.open(encoding='utf-8') as sql_file:
         procedure_sql = sql_file.read()
 
@@ -22,6 +24,8 @@ def install_transfer_procedure(apps, schema_editor):
 
 
 def remove_transfer_procedure(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
     with schema_editor.connection.cursor() as cursor:
         cursor.execute('DROP PROCEDURE IF EXISTS sp_transfer_funds')
 

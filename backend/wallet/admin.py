@@ -81,6 +81,11 @@ class WalletAdmin(admin.ModelAdmin):
     list_filter = ['wallet_status', 'is_default_receive', 'currency']
     search_fields = ['wallet_id', 'name', 'user__email', 'user__phone']
 
+    def has_add_permission(self, request):
+        # Wallets are created only for customer accounts through the
+        # customer flow; administrative accounts are monitoring-only.
+        return False
+
 
 @admin.register(CryptoAddress)
 class CryptoAddressAdmin(admin.ModelAdmin):

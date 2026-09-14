@@ -77,10 +77,19 @@ def scalar(sql, params=None):
         return row[0] if row else None
 
 
+def _bounded_int(value, default=100, maximum=500):
+        try:
+            return max(0, min(int(value), maximum))
+        except (TypeError, ValueError):
+            return default
+
+
 def call_procedure(name, params=None):
-    """Call a MySQL stored procedure with parameterized arguments."""
+    """Call a MySQL stored procedure and consume all returned result sets."""
     with connection.cursor() as cursor:
         cursor.callproc(name, params or [])
+        while cursor.nextset():
+            pass
 
 
 def call_wallet_procedure(name, params=None):
@@ -115,6 +124,10 @@ def _tables():
         m.Transaction: 'wallet_transaction',
         m.Notification: 'wallet_notification',
         m.AuditLog: 'wallet_auditlog',
+        m.AdminAuditEvent: 'wallet_adminauditevent',
+        m.Dispute: 'wallet_dispute',
+        m.FeeLimitConfig: 'wallet_feelimitconfig',
+        m.WalletReserveSnapshot: 'wallet_walletreservesnapshot',
         m.LoginSession: 'wallet_loginsession',
         m.MoneyRequest: 'wallet_moneyrequest',
         m.ScheduledPayment: 'wallet_scheduledpayment',
@@ -313,16 +326,8 @@ def hydrate_all(model_cls, rows, **related):
 # wallet row with is_default_receive=True.
 # =====================================================
 
-def unset_other_default_wallets(user_id, except_wallet_id=None):
-    if except_wallet_id:
-        return execute(
-            load_sql("wallet/unset_other_default_wallets"),
-            [False, user_id, except_wallet_id],
-        )[0]
-    return execute(
-        load_sql("wallet/unset_all_default_wallets"),
-        [False, user_id],
-    )[0]
+def set_default_wallet(user_id, wallet_id):
+    call_wallet_procedure("sp_set_default_wallet", [user_id, wallet_id])
 
 
 # =====================================================
@@ -1070,3 +1075,297 @@ def deactivate_wallets_for_user(user_id):
         load_sql("app/deactivate_wallets_for_user_1"),
         ["FROZEN", user_id],
     )[0]
+
+
+# =====================================================
+# ADMIN OPERATIONS
+# =====================================================
+
+def admin_list_users(status_filter=None, account_type=None, search=None, limit=100, offset=0):
+    clauses, params = [], []
+    if status_filter:
+        clauses.append("u.status = %s")
+        params.append(status_filter)
+    if account_type:
+        clauses.append("u.account_type = %s")
+        params.append(account_type)
+    if search:
+        clauses.append("(u.email LIKE %s OR u.phone LIKE %s OR u.name LIKE %s)")
+        term = f"%{search}%"
+        params.extend([term, term, term])
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.extend([max(1, _bounded_int(limit)), _bounded_int(offset, 0, 1000000)])
+    return fetchall(
+        f"""SELECT u.id, u.name, u.email, u.phone, u.status, u.account_type,
+                   u.business_name, u.is_flagged, u.flagged_reason,
+                   u.registration_date, u.is_staff
+              FROM wallet_user u {where}
+             ORDER BY u.registration_date DESC LIMIT %s OFFSET %s""",
+        params,
+    )
+
+
+def admin_update_user(user_id, fields):
+    allowed = {
+        'status', 'is_active', 'account_type', 'business_name', 'is_flagged',
+        'flagged_reason',
+    }
+    fields = {key: value for key, value in fields.items() if key in allowed}
+    if not fields:
+        return 0
+    return update_by_pk(__import__('wallet.models', fromlist=['User']).User, 'id', user_id, **fields)
+
+
+def admin_list_roles():
+    return fetchall("SELECT id, role_name FROM wallet_role ORDER BY role_name")
+
+
+def admin_get_role(role_name):
+    return fetchone(
+        "SELECT id, role_name FROM wallet_role WHERE role_name = %s", [role_name],
+    )
+
+
+def admin_assign_role(user_id, role_id, assigned_at):
+    rowcount, last_id = execute(
+        """INSERT INTO wallet_userrole (user_id, role_id, assigned_at)
+           VALUES (%s, %s, %s)""",
+        [user_id, role_id, assigned_at],
+    )
+    return rowcount, last_id
+
+
+def admin_remove_role(user_id, role_id):
+    return execute(
+        "DELETE FROM wallet_userrole WHERE user_id = %s AND role_id = %s",
+        [user_id, role_id],
+    )[0]
+
+
+def admin_user_roles(user_id):
+    return fetchall(
+        """SELECT r.id, r.role_name, ur.assigned_at
+             FROM wallet_userrole ur JOIN wallet_role r ON r.id = ur.role_id
+            WHERE ur.user_id = %s ORDER BY r.role_name""",
+        [user_id],
+    )
+
+
+def admin_list_transactions(status_filter=None, transaction_type=None, limit=100, offset=0):
+    clauses, params = [], []
+    if status_filter:
+        clauses.append("t.status = %s")
+        params.append(status_filter)
+    if transaction_type:
+        clauses.append("t.transaction_type = %s")
+        params.append(transaction_type)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.extend([max(1, _bounded_int(limit)), _bounded_int(offset, 0, 1000000)])
+    return fetchall(
+        f"""SELECT t.transaction_id, t.transaction_type, t.amount, t.received_amount,
+                   t.fee, t.status, t.date, t.sender_wallet_id, t.receiver_wallet_id
+              FROM wallet_transaction t {where}
+             ORDER BY t.date DESC LIMIT %s OFFSET %s""",
+        params,
+    )
+
+
+def admin_update_transaction(transaction_id, status_value):
+    return execute(
+        "UPDATE wallet_transaction SET status = %s WHERE transaction_id = %s",
+        [status_value, transaction_id],
+    )[0]
+
+
+def admin_list_disputes(status_filter=None, limit=100, offset=0):
+    clauses, params = [], []
+    if status_filter:
+        clauses.append("d.status = %s")
+        params.append(status_filter)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.extend([max(1, _bounded_int(limit)), _bounded_int(offset, 0, 1000000)])
+    return fetchall(
+        f"""SELECT d.dispute_id, d.transaction_id, d.claimant_id, d.reason, d.amount,
+                   d.currency, d.status, d.resolution, d.resolved_by_id,
+                   d.created_at, d.updated_at, d.resolved_at
+              FROM wallet_dispute d {where}
+             ORDER BY d.created_at DESC LIMIT %s OFFSET %s""",
+        params,
+    )
+
+
+def admin_get_dispute(dispute_id):
+    return fetchone(
+        """SELECT dispute_id, transaction_id, claimant_id, reason, amount, currency,
+                  status, resolution, resolved_by_id, created_at, updated_at, resolved_at
+             FROM wallet_dispute WHERE dispute_id = %s""",
+        [dispute_id],
+    )
+
+
+def admin_create_dispute(fields):
+    return execute(
+        """INSERT INTO wallet_dispute
+           (dispute_id, transaction_id, claimant_id, reason, amount, currency,
+            status, resolution, resolved_by_id, created_at, updated_at, resolved_at)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NULL, %s, %s, NULL)""",
+        [
+            fields['dispute_id'], fields['transaction_id'], fields['claimant_id'],
+            fields['reason'], fields['amount'], fields['currency'],
+            fields.get('status', 'OPEN'), fields.get('resolution', ''),
+            fields['created_at'], fields['created_at'],
+        ],
+    )[0]
+
+
+def admin_resolve_dispute(dispute_id, status_value, resolution, resolved_by, resolved_at):
+    return execute(
+        """UPDATE wallet_dispute
+              SET status = %s, resolution = %s, resolved_by_id = %s,
+                  resolved_at = %s, updated_at = %s
+            WHERE dispute_id = %s""",
+        [status_value, resolution, resolved_by, resolved_at, resolved_at, dispute_id],
+    )[0]
+
+
+def admin_list_fee_configs():
+    return fetchall(
+        """SELECT config_key, scope, fee_percent, fixed_fee, daily_limit,
+                  monthly_limit, max_transaction, is_active, updated_by_id, updated_at
+             FROM wallet_feelimitconfig ORDER BY scope, config_key"""
+    )
+
+
+def get_active_fee_config(config_key):
+    return fetchone(
+        """SELECT config_key, scope, fee_percent, fixed_fee, daily_limit,
+                  monthly_limit, max_transaction, is_active
+             FROM wallet_feelimitconfig
+            WHERE config_key = %s AND is_active = %s""",
+        [config_key, True],
+    )
+
+
+def admin_upsert_fee_config(config_key, fields, updated_by, updated_at):
+    existing = fetchone(
+        "SELECT config_key FROM wallet_feelimitconfig WHERE config_key = %s",
+        [config_key],
+    )
+    allowed = {
+        'scope', 'fee_percent', 'fixed_fee', 'daily_limit', 'monthly_limit',
+        'max_transaction', 'is_active',
+    }
+    clean = {key: value for key, value in fields.items() if key in allowed}
+    clean['updated_by_id'] = updated_by
+    clean['updated_at'] = updated_at
+    if existing:
+        return update_by_pk(
+            __import__('wallet.models', fromlist=['FeeLimitConfig']).FeeLimitConfig,
+            'config_key', config_key, **clean,
+        )
+    defaults = {
+        'scope': 'GLOBAL', 'fee_percent': 0, 'fixed_fee': 0,
+        'daily_limit': None, 'monthly_limit': None, 'max_transaction': None,
+        'is_active': True,
+    }
+    defaults.update(clean)
+    cols = ['config_key'] + list(defaults.keys())
+    values = [config_key] + [defaults[key] for key in defaults]
+    placeholders = ', '.join(['%s'] * len(cols))
+    return execute(
+        f"INSERT INTO wallet_feelimitconfig ({', '.join(cols)}) VALUES ({placeholders})",
+        values,
+    )[0]
+
+
+def admin_liquidity_summary():
+    return fetchall(
+        """SELECT currency_id AS currency, COALESCE(SUM(balance), 0) AS customer_balance,
+                  COUNT(*) AS wallet_count
+             FROM wallet_wallet WHERE wallet_status <> 'CLOSED'
+            GROUP BY currency_id ORDER BY currency_id"""
+    )
+
+
+def admin_list_reserve_snapshots(currency=None, limit=100):
+    if currency:
+        return fetchall(
+            """SELECT id, currency, total_customer_balance, reserve_balance,
+                      available_liquidity, captured_at, captured_by_id
+                 FROM wallet_walletreservesnapshot WHERE currency = %s
+                ORDER BY captured_at DESC LIMIT %s""",
+            [currency, max(1, _bounded_int(limit))],
+        )
+    return fetchall(
+        """SELECT id, currency, total_customer_balance, reserve_balance,
+                  available_liquidity, captured_at, captured_by_id
+             FROM wallet_walletreservesnapshot
+            ORDER BY captured_at DESC LIMIT %s""",
+        [max(1, _bounded_int(limit))],
+    )
+
+
+def admin_create_reserve_snapshot(fields):
+    return execute(
+        """INSERT INTO wallet_walletreservesnapshot
+           (currency, total_customer_balance, reserve_balance,
+            available_liquidity, captured_at, captured_by_id)
+           VALUES (%s, %s, %s, %s, %s, %s)""",
+        [
+            fields['currency'], fields['total_customer_balance'],
+            fields['reserve_balance'], fields['available_liquidity'],
+            fields['captured_at'], fields.get('captured_by_id'),
+        ],
+    )[1]
+
+
+def admin_list_audit_events(limit=100, offset=0):
+    return fetchall(
+        """SELECT event_id, actor_id, action, resource_type, resource_id,
+                  metadata, ip_address, created_at, previous_hash, event_hash
+             FROM wallet_adminauditevent
+            ORDER BY created_at DESC LIMIT %s OFFSET %s""",
+        [max(1, _bounded_int(limit)), _bounded_int(offset, 0, 1000000)],
+    )
+
+
+def admin_last_audit_hash():
+    return scalar(
+        """SELECT event_hash FROM wallet_adminauditevent
+            ORDER BY created_at DESC LIMIT 1"""
+    ) or ''
+
+
+def admin_create_audit_event(fields):
+    return execute(
+        """INSERT INTO wallet_adminauditevent
+           (event_id, actor_id, action, resource_type, resource_id, metadata,
+            ip_address, created_at, previous_hash, event_hash)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+        [
+            str(fields['event_id']), fields.get('actor_id'), fields['action'],
+            fields['resource_type'], fields.get('resource_id', ''),
+            fields.get('metadata', '{}'), fields.get('ip_address'),
+            fields['created_at'], fields.get('previous_hash', ''),
+            fields['event_hash'],
+        ],
+    )[0]
+
+
+def admin_reporting_summary(since=None):
+    params = [since] if since else []
+    where = "WHERE date >= %s" if since else ""
+    return {
+        'transaction_count': scalar(
+            f"SELECT COUNT(*) FROM wallet_transaction {where}", params,
+        ) or 0,
+        'transaction_volume': scalar(
+            f"SELECT COALESCE(SUM(amount), 0) FROM wallet_transaction {where}", params,
+        ) or 0,
+        'fee_revenue': scalar(
+            f"SELECT COALESCE(SUM(fee), 0) FROM wallet_transaction {where}", params,
+        ) or 0,
+        'disputes_open': scalar(
+            "SELECT COUNT(*) FROM wallet_dispute WHERE status IN ('OPEN', 'UNDER_REVIEW')"
+        ) or 0,
+    }

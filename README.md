@@ -104,14 +104,42 @@ python manage.py runserver
 The API is now at `http://127.0.0.1:8000/api/`, admin at
 `http://127.0.0.1:8000/admin/`.
 
-`database/schema.sql` is a reference schema. Do not run it manually on
-Railway when using Django migrations.
+### Administrative accounts are monitoring-only
 
-**Note on the default-wallet rule:** unlike PostgreSQL, MySQL has no
-conditional/partial unique index, so "exactly one default receive
-wallet per user" isn't a DB-level constraint here — `Wallet.save()`
-in `wallet/models.py` enforces it by unsetting any previous default
-before saving a new one.
+Accounts with `is_staff=True` or `is_superuser=True` are reserved for
+platform monitoring and control-plane operations. They cannot create,
+list, fund, freeze, delete, or use wallets, and they cannot send,
+exchange, deposit, withdraw, or schedule money movement. Migration
+`0013_monitoring_only_admin_wallets` closes wallets that already belong
+to administrative accounts while preserving transaction history.
+
+The custom monitoring dashboard is available at
+`frontend/pages/admin.html`. Customer accounts retain the normal wallet
+and payment features.
+
+After deploying the frontend changes, log out and log in again as the
+administrative account (or use `Ctrl+F5`). Administrative sessions are
+redirected to the monitoring dashboard and no longer show customer
+navigation such as Wallets, Send, Receive, or Exchange.
+
+### Transaction reversal
+
+Finance-authorized administrators can use the Reverse action in the
+monitoring dashboard for an eligible completed transaction. The backend
+locks the original row and wallet rows in a MySQL procedure, checks that
+the transaction has not already been reversed, compensates the balances,
+marks the original transaction `REVERSED`, creates a `REVERSAL` transaction,
+and writes an immutable admin audit event containing the reason. The
+original transaction is never deleted or silently overwritten.
+
+`database/schema.sql` is a reference schema. Do not run it manually on
+Railway when using Django migrations. Railway can use the root `Procfile`,
+which runs migrations and starts Daphne from the `backend` directory.
+
+**Note on the default-wallet rule:** MySQL has no partial index, so the
+project uses a generated nullable key plus a unique index, database triggers,
+and the `sp_set_default_wallet` procedure. This keeps the rule enforced for
+both Django requests and direct database writes.
 
 ### Managing exchange rates
 
@@ -194,3 +222,17 @@ static server separately with `Ctrl+C` in its terminal.
 - Exchange rates in this build are simple static rows seeded once;
   swap `seed_data` for a scheduled job hitting a live rates API if you
   want them to move in real time.
+
+
+
+
+
+
+// CREATE ADMIN OR superUSER
+
+Set-Location 'C:\Users\User\OneDrive\Desktop\FyCrypt\FYCRIPT_update_final\backend'
+& '..\.venv\Scripts\python.exe' manage.py createsuperuser
+
+
+admin1- hasib.sabit@gmail.com
+pass - hasib123

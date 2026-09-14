@@ -914,3 +914,55 @@ class BankDepositSerializer(serializers.Serializer):
 class BankWithdrawSerializer(serializers.Serializer):
     wallet_id = serializers.CharField()
     amount = serializers.DecimalField(max_digits=24, decimal_places=8, min_value=Decimal("0.00000001"))
+
+
+# =====================================================
+# ADMIN CONTROL PLANE
+# =====================================================
+
+class AdminUserStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=['ACTIVE', 'SUSPENDED', 'CLOSED'])
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+
+class AdminRoleSerializer(serializers.Serializer):
+    role_name = serializers.CharField(max_length=50)
+    action = serializers.ChoiceField(choices=['assign', 'remove'], default='assign')
+
+
+class AdminTransactionActionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=['PENDING', 'COMPLETED', 'FAILED'])
+    reason = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+
+class AdminTransactionReversalSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255, allow_blank=False)
+
+
+class AdminDisputeCreateSerializer(serializers.Serializer):
+    transaction_id = serializers.CharField(max_length=40)
+    claimant_id = serializers.IntegerField()
+    reason = serializers.CharField(max_length=255)
+    amount = serializers.DecimalField(max_digits=24, decimal_places=8, min_value=Decimal('0.00000001'))
+    currency = serializers.CharField(max_length=10)
+
+
+class AdminDisputeResolutionSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=['RESOLVED', 'REJECTED', 'CHARGEBACK'])
+    resolution = serializers.CharField(max_length=2000, required=True)
+
+
+class FeeLimitConfigSerializer(serializers.Serializer):
+    config_key = serializers.CharField(max_length=80)
+    scope = serializers.CharField(max_length=30, required=False)
+    fee_percent = serializers.DecimalField(max_digits=8, decimal_places=4, required=False, min_value=Decimal('0'))
+    fixed_fee = serializers.DecimalField(max_digits=24, decimal_places=8, required=False, min_value=Decimal('0'))
+    daily_limit = serializers.DecimalField(max_digits=24, decimal_places=8, required=False, allow_null=True, min_value=Decimal('0'))
+    monthly_limit = serializers.DecimalField(max_digits=24, decimal_places=8, required=False, allow_null=True, min_value=Decimal('0'))
+    max_transaction = serializers.DecimalField(max_digits=24, decimal_places=8, required=False, allow_null=True, min_value=Decimal('0'))
+    is_active = serializers.BooleanField(required=False)
+
+
+class ReserveSnapshotSerializer(serializers.Serializer):
+    currency = serializers.CharField(max_length=10)
+    reserve_balance = serializers.DecimalField(max_digits=30, decimal_places=8, min_value=Decimal('0'))

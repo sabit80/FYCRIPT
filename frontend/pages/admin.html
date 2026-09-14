@@ -9,6 +9,10 @@
     <title>CryptoWallet - Admin Dashboard</title>
 
     <link rel="stylesheet" href="../css/reports.css">
+    <style>
+        .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+        .toolbar input, .toolbar select { min-height:36px; padding:6px 10px; }
+    </style>
 
 </head>
 
@@ -30,15 +34,6 @@
             </div>
 
             <nav>
-                <a href="../index.html">◉ Dashboard</a>
-                <a href="wallets.html">▣ Wallets</a>
-                <a href="send.html">➤ Send</a>
-                <a href="receive.html">⇩ Receive</a>
-                <a href="exchange.html">⇄ Exchange</a>
-                <a href="split-bill.html">🧾 Split Bill</a>
-                <a href="transactions.html">▤ Transactions</a>
-                <a href="market.html">⌁ Market</a>
-                <a href="reports.html">▥ Reports</a>
                 <a href="admin.html" class="active" aria-current="page">🛡 Admin</a>
             </nav>
 
@@ -69,8 +64,8 @@
 
             <header class="header">
                 <div>
-                    <h1>Admin Dashboard</h1>
-                    <p>Platform-wide analytics, KYC review, and fraud management.</p>
+                    <h1>Admin Monitoring Dashboard</h1>
+                    <p>Platform-wide monitoring, KYC review, fraud management, and audit oversight.</p>
                 </div>
                 <div class="avatar" id="avatar">A</div>
             </header>
@@ -143,6 +138,41 @@
 
                 </section>
 
+                <section class="card">
+                    <h2>User &amp; Merchant Management</h2>
+                    <div class="toolbar">
+                        <input id="adminUserSearch" type="search" placeholder="Search name, email, or phone">
+                        <select id="adminUserType">
+                            <option value="">All accounts</option>
+                            <option value="PERSONAL">Personal</option>
+                            <option value="MERCHANT">Merchants</option>
+                        </select>
+                        <button id="adminUserRefresh" type="button">Refresh</button>
+                    </div>
+                    <div id="adminUsersList"></div>
+                </section>
+
+                <section class="card">
+                    <h2>Transaction Oversight &amp; Disputes</h2>
+                    <p class="hint">Completed transactions can be reversed only with an explicit reason. The original record is retained.</p>
+                    <div id="adminTransactionsList"></div>
+                    <div id="adminDisputesList"></div>
+                </section>
+
+                <section class="card">
+                    <h2>Fees, Limits &amp; Liquidity</h2>
+                    <div id="adminFeeLimits"></div>
+                    <div id="adminLiquidity"></div>
+                </section>
+
+                <section class="card">
+
+                    <h2>Immutable Admin Audit Trail</h2>
+                    <p class="hint">Administrative accounts are monitoring-only and do not have wallets or money-movement access.</p>
+
+                    <div id="adminAuditEvents"></div>
+                </section>
+
             </div>
 
         </main>
@@ -156,7 +186,7 @@
     <script src="../js/api.js"></script>
 <script src="../js/notifications.js"></script>
     <script src="../js/theme.js"></script>
-    <script src="../js/admin.js"></script>
+    <script src="../js/admin.js?v=20260915-monitoring"></script>
 
 </body>
 

@@ -53,6 +53,21 @@ END
 """
 
 
+def install_exchange_procedure(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("DROP PROCEDURE IF EXISTS sp_exchange_funds")
+        cursor.execute(PROCEDURE_SQL)
+
+
+def uninstall_exchange_procedure(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        return
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute("DROP PROCEDURE IF EXISTS sp_exchange_funds")
+
+
 class Migration(migrations.Migration):
     """
     database/schema.sql's sp_exchange_funds was written against that
@@ -71,11 +86,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql=[
-                "DROP PROCEDURE IF EXISTS sp_exchange_funds;",
-                PROCEDURE_SQL,
-            ],
-            reverse_sql="DROP PROCEDURE IF EXISTS sp_exchange_funds;",
+        migrations.RunPython(
+            install_exchange_procedure,
+            reverse_code=uninstall_exchange_procedure,
         ),
     ]

@@ -29,7 +29,7 @@ RATES_TO_USD = {
     "USDT": Decimal("1"),
 }
 
-ROLES = ["USER", "ADMIN"]
+ROLES = ["USER", "ADMIN", "OPERATIONS", "SUPPORT", "COMPLIANCE", "FINANCE"]
 
 
 class Command(BaseCommand):
