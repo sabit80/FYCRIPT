@@ -176,6 +176,16 @@ If you serve it from a different port than the ones already in
 `frontend/js/api.js` points at `http://127.0.0.1:8000/api` by default
 — update `API_BASE_URL` there if your backend runs elsewhere.
 
+### Application links
+
+After starting the backend and frontend servers, use these links:
+
+- Web application: `http://127.0.0.1:5501/index.html`
+- User login: `http://127.0.0.1:5501/login.html`
+- Admin login: `http://127.0.0.1:5501/login.html`
+  (sign in with a staff or superuser account; it redirects to the monitoring dashboard)
+- Django administration: `http://127.0.0.1:8000/admin/`
+
 ## 3. Useful commands
 
 Run these commands from the `backend` directory with the virtual

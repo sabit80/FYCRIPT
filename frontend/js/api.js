@@ -20,9 +20,10 @@ const API_BASE_URL =
 /* =====================================================
    TOKEN STORAGE
 
-   Access/refresh tokens live in localStorage (not
-   sessionStorage) so a login survives a page refresh in
-   the same browser, same as most real apps.
+   Access/refresh tokens live in sessionStorage so separate
+   browser tabs cannot overwrite one another's authenticated
+   account. sessionStorage survives a page refresh in the
+   same tab while keeping account A from using account B's token.
 ===================================================== */
 
 const ACCESS_TOKEN_KEY = "cryptoWalletAccessToken";
@@ -31,27 +32,30 @@ const REFRESH_TOKEN_KEY = "cryptoWalletRefreshToken";
 
 function setTokens(access, refresh) {
 
-    localStorage.setItem(ACCESS_TOKEN_KEY, access);
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, access);
 
     if (refresh) {
-        localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh);
     }
 
 }
 
 
 function getAccessToken() {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
+    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 
 function getRefreshToken() {
-    return localStorage.getItem(REFRESH_TOKEN_KEY);
+    return sessionStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 
 function clearTokens() {
 
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    // Remove tokens written by older versions so they cannot be reused.
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
 
@@ -75,30 +79,52 @@ function isAdministrativeSession() {
     return sessionStorage.getItem("isAdministrative") === "true";
 }
 
+function requireAdmin(loginPath) {
+    if (!isAdministrativeSession()) {
+        window.location.replace(loginPath || "../login.html");
+        return false;
+    }
+
+    return true;
+}
+
 
 function enforceAdministrativeNavigation() {
-    if (!isAdministrativeSession()) {
+    const currentPath = window.location.pathname.toLowerCase();
+    const adminPage = currentPath.endsWith("/pages/admin.html");
+    const settingsPage = currentPath.endsWith("/pages/settings.html");
+    const helpPage = currentPath.endsWith("/pages/help.html");
+    const authenticationPage = currentPath.endsWith("/login.html") ||
+        currentPath.endsWith("/create-account.html");
+    const isAdmin = isAdministrativeSession();
+
+    document.querySelectorAll("a[href]").forEach(function(link) {
+        const href = (link.getAttribute("href") || "").toLowerCase();
+        const adminLink = href.endsWith("admin.html");
+
+        if (adminLink && !isAdmin) {
+            link.remove();
+        }
+
+        if (isAdmin && !adminLink && !href.endsWith("settings.html") &&
+            !href.endsWith("help.html")) {
+            link.remove();
+        }
+    });
+
+    if (!isAdmin && adminPage) {
+        window.location.replace("../index.html");
         return;
     }
 
-    const currentPath = window.location.pathname.toLowerCase();
-    const adminPage = currentPath.endsWith("/pages/admin.html");
-
-    if (!adminPage) {
+    if (isAdmin && !adminPage && !settingsPage && !helpPage &&
+        !authenticationPage) {
         window.location.replace(
             currentPath.endsWith("/index.html")
                 ? "pages/admin.html"
                 : "admin.html"
         );
-        return;
     }
-
-    document.querySelectorAll("nav a").forEach(function(link) {
-        const href = (link.getAttribute("href") || "").toLowerCase();
-        if (!href.includes("admin.html")) {
-            link.remove();
-        }
-    });
 }
 
 
@@ -348,7 +374,10 @@ function requireSession(loginPath) {
 window.CryptoWalletAPI = {
 
     request: apiRequest,
+    setTokens: setTokens,
     setAdministrativeSession: setAdministrativeSession,
+    isAdministrativeSession: isAdministrativeSession,
+    requireAdmin: requireAdmin,
     clearTokens: clearTokens,
     isLoggedIn: isLoggedIn,
     requireLogin: requireLogin,

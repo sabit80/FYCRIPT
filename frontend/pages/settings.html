@@ -114,7 +114,7 @@
 
             <!-- BANK ACCOUNTS -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2>Bank Accounts</h2>
                 <p class="hint">Connect one or more bank accounts to your CryptoWallet account.</p>
@@ -146,7 +146,7 @@
 
             <!-- KYC -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2>KYC Verification</h2>
                 <p class="hint" id="kycStatusHint">Submit your ID to verify your account.</p>
@@ -260,7 +260,7 @@
 
             <!-- SCHEDULED / RECURRING PAYMENTS -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2 data-i18n="scheduled_payments_title">Scheduled Payments</h2>
                 <p class="hint">Set up a recurring or future-dated transfer.</p>
@@ -316,7 +316,7 @@
 
             <!-- ACCOUNT TYPE (PERSONAL / MERCHANT) -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2 data-i18n="account_type_title">Account Type</h2>
                 <p class="hint">Merchant accounts can create payment links for customers.</p>
@@ -344,7 +344,7 @@
 
             <!-- MERCHANT PAYMENT LINKS -->
 
-            <section class="card settings-card" id="paymentLinksSection" style="display:none;">
+            <section class="card settings-card" id="paymentLinksSection" data-customer-only style="display:none;">
 
                 <h2 data-i18n="payment_links_title">Payment Links</h2>
                 <p class="hint">Share a link with customers to collect a fixed or open amount.</p>
@@ -380,7 +380,7 @@
 
             <!-- SAVINGS GOALS -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2 data-i18n="savings_goals_title">Savings Goals</h2>
                 <p class="hint">Set aside money toward a goal, optionally auto-saving a % of every Send.</p>
@@ -422,7 +422,7 @@
 
             <!-- PRICE ALERTS -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2 data-i18n="rate_alerts_title">Rate Alerts</h2>
                 <p class="hint">Get notified when a currency crosses a rate you choose.</p>
@@ -476,7 +476,7 @@
 
             <!-- DEACTIVATE ACCOUNT -->
 
-            <section class="card settings-card">
+            <section class="card settings-card" data-customer-only>
 
                 <h2 style="color:#d9484f;" data-i18n="deactivate_title">Deactivate Account</h2>
                 <p class="hint">This closes your account. Contact support to reactivate it.</p>
@@ -500,7 +500,7 @@
     <div id="toast" class="toast"></div>
 
 
-    <script src="../js/api.js"></script>
+    <script src="../js/api.js?v=20260916-auth"></script>
 <script src="../js/notifications.js"></script>
 <script src="../js/theme.js"></script>
 <script src="../js/i18n.js"></script>

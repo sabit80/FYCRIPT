@@ -5,6 +5,15 @@
 
 CryptoWalletAPI.requireLogin("../login.html");
 
+const isAdministrativeSettings =
+    CryptoWalletAPI.isAdministrativeSession();
+
+if (isAdministrativeSettings) {
+    document.querySelectorAll("[data-customer-only]").forEach(function(section) {
+        section.style.display = "none";
+    });
+}
+
 
 
 /* =====================================================
@@ -633,15 +642,6 @@ if (kycForm) {
 /* =====================================================
    INITIAL LOAD
 ===================================================== */
-
-loadProfile();
-loadBankAccounts();
-loadKYC();
-load2FAStatus();
-loadScheduledPayments();
-populateSchedWalletSelect();
-
-
 
 /* =====================================================
    TWO-FACTOR AUTHENTICATION
@@ -1579,9 +1579,17 @@ if (deactivateAccountButton) {
    ADDITIONAL INITIAL LOAD (batch 2 features)
 ===================================================== */
 
-loadAccountType();
-populateSavingsWalletSelect();
-loadSavingsGoals();
-populateCurrencySelects();
-loadPriceAlerts();
+loadProfile();
+load2FAStatus();
 
+if (!isAdministrativeSettings) {
+    loadBankAccounts();
+    loadKYC();
+    loadScheduledPayments();
+    populateSchedWalletSelect();
+    loadAccountType();
+    populateSavingsWalletSelect();
+    loadSavingsGoals();
+    populateCurrencySelects();
+    loadPriceAlerts();
+}

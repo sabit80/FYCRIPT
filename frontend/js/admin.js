@@ -8,7 +8,9 @@
    since the real enforcement lives server-side regardless.
 ===================================================== */
 
-CryptoWalletAPI.requireLogin("../login.html");
+if (!CryptoWalletAPI.requireAdmin("../login.html")) {
+    throw new Error("Administrative access is required.");
+}
 
 
 

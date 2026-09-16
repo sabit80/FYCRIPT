@@ -1154,6 +1154,10 @@ class BankAccountDepositView(APIView):
             wallet.wallet_id, amount, transaction_id, 'Bank Deposit',
         ])
         txn = rawsql.hydrate(Transaction, rawsql.get_transaction_by_id(transaction_id))
+        # The stored procedure updates the database row directly. Refresh the
+        # hydrated instance before serializing it so the response cannot
+        # report the pre-deposit balance.
+        wallet = get_wallet_or_404(wallet.wallet_id, user=request.user)
 
         with db_transaction.atomic():
             create_audit_log(
@@ -1551,6 +1555,8 @@ class FundWalletView(APIView):
         rawsql.call_procedure('sp_deposit_funds', [
             wallet.wallet_id, amount, transaction_id, '',
         ])
+        # Stored procedures bypass the in-memory model instance.
+        wallet = get_wallet_or_404(wallet.wallet_id, user=request.user)
 
         with db_transaction.atomic():
             create_audit_log(request.user, 'DEPOSIT', remarks=wallet.wallet_id, ip_address=client_ip(request))

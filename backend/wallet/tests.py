@@ -61,6 +61,36 @@ class RegisterLoginTests(BaseAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
+class DeactivateAccountTests(BaseAPITestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            email='deactivate@example.com',
+            name='Deactivate User',
+            phone='+8801700000080',
+            password='A-Strong-Unique-Password-42!',
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_deactivate_requires_current_password(self):
+        response = self.client.post('/api/profile/deactivate/', {
+            'password': 'wrong-password',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.status, 'ACTIVE')
+
+    def test_deactivate_closes_account(self):
+        response = self.client.post('/api/profile/deactivate/', {
+            'password': 'A-Strong-Unique-Password-42!',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.status, 'CLOSED')
+        self.assertFalse(self.user.is_active)
+
+
 class SendExchangeTests(BaseAPITestCase):
 
     def setUp(self):

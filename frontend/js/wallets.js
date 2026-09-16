@@ -153,7 +153,7 @@ async function renderWallets() {
     let wallets;
  
     try {
- 
+
         wallets = await CryptoWalletAPI.request("/wallets/");
  
     }
@@ -364,6 +364,10 @@ async function renderWallets() {
  
         button.addEventListener("click", async function() {
  
+            if (button.disabled) {
+                return;
+            }
+
             const amount =
                 window.prompt("Amount to add to this wallet:");
  
@@ -384,7 +388,9 @@ async function renderWallets() {
             }
  
             try {
- 
+
+                button.disabled = true;
+
                 await CryptoWalletAPI.request(
                     "/wallets/" + button.dataset.id + "/fund/",
                     { method: "POST", body: { amount: numericAmount } }
@@ -401,6 +407,12 @@ async function renderWallets() {
  
                 showToast(error.message);
  
+            }
+
+            finally {
+
+                button.disabled = false;
+
             }
  
         });
@@ -512,6 +524,4 @@ if (logout) {
  
 renderWallets();
  
-
-
 

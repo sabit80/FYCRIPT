@@ -17,6 +17,7 @@ urlpatterns = [
     path('profile/', views.ProfileView.as_view()),
     path('profile/change-password/', views.ChangePasswordView.as_view()),
     path('profile/transaction-pin/', views.SetTransactionPinView.as_view()),
+    path('profile/deactivate/', views.DeactivateAccountView.as_view()),
 
     # TWO-FACTOR AUTHENTICATION
     path('profile/2fa/setup/', views.Enable2FASetupView.as_view()),

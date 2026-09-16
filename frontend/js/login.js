@@ -4,6 +4,13 @@
    CRYPTOWALLET
    LOGIN SYSTEM (Django API version)
 ===================================================== */
+
+/*
+    Login is the boundary between accounts. Remove any previous
+    browser session before accepting a new account's credentials.
+*/
+CryptoWalletAPI.clearTokens();
+sessionStorage.clear();
  
  
 /* =====================================================
@@ -18,7 +25,7 @@
  
 function redirectAfterLogin(user) {
  
-    if (user && user.is_staff) {
+    if (user && (user.is_staff || user.is_superuser)) {
  
         window.location.href = "pages/admin.html";
  
@@ -361,4 +368,3 @@ if (passkeyLoginButton) {
  
 }
  
-
